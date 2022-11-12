@@ -1,4 +1,5 @@
 #include <iostream>
+#include "libs/ppm_io.h"
 using namespace std;
 
 // receive matrix of points in any multidimensional space
@@ -19,6 +20,13 @@ int* meanShift(float** points, size_t nOfPoints, size_t dimension)
 
 int main()
 {
+    PPM ppmIn;
+    int status;
+    std::string inFilepath = "../Image/image.ppm";
+    status = ppmIn.read(inFilepath);
+    cout <<status<<endl;
+
+    /*
 	size_t nOfPoints = 100;
 	size_t dimension = 5;
 
@@ -42,4 +50,5 @@ int main()
 	delete[] points;
 
 	return 0;
+     */
 }
