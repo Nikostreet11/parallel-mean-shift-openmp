@@ -3,7 +3,7 @@
 #include <cmath>
 using namespace std;
 
-// SOA
+// structure of arrays
 struct pixels{
     float* R;
     float* G;
@@ -16,20 +16,101 @@ float distance(float r1, float g1, float b1, float x1, float y1, float r2, float
     return sqrt(pow((r1-r2),2)+pow((g1-g2),2)+pow((b1-b2),2)+pow((x1-x2),2)+pow((y1-y2),2));
 }
 
-// receive matrix of pixels in 5 multidimensional space R, G, B, X, Y
-// TODO return vector of cluster indices
-float* meanShift(pixels &points, size_t nOfPoints, pixels &Modes)
+// euclidean distance function
+float l2Distance(float x[], float y[], size_t size) {
+	float distance = 0;
+	for (int i = 0; i < size; ++i) {
+		distance += std::pow(x[i] + y[i], 2);
+	}
+	return sqrt(distance);
+}
+
+/**
+ * Cluster RGB pixels with the mean shift algorithm
+ *
+ * The mean shift algorithm is used in a 5-dimensional space (R, G, B, X, Y) to cluster the
+ * pixels of an image.
+ *
+ * @param points the structure of arrays containing the pixel values
+ * @param modes the resulting modes to compute
+ * @param bandwidth the radius of window size to compute the mean shift
+ *
+ * @todo
+ * @return the array of cluster indices
+ */
+float* meanShift(pixels &points, size_t nOfPoints, pixels &modes, float bandwidth)
 {
-    for (size_t i = 0; i < nOfPoints; ++i)
-    {
-        for (size_t j = 0; j < nOfPoints; ++j){
-            // todo if in distance...
-        }
+	// sanity check
+	if (&points == &modes) {
+		printf("Error - Pixel and modes can't be the same structure!");
+		return NULL;
+	}
+
+	// initialize the stop value
+	float epsilon = bandwidth / 100;
+
+	// initialize the centroids to the initial position of each point
+	for (size_t i = 0; i < nOfPoints; ++i) {
+		modes.R[i] = points.R[i];
+		modes.G[i] = points.G[i];
+		modes.B[i] = points.B[i];
+		modes.X[i] = points.X[i];
+		modes.Y[i] = points.Y[i];
+	}
+
+    for (int i = 0; i < nOfPoints; ++i)
+	{
+		float centroid[5] = {points.R[i],
+							 points.G[i],
+							 points.B[i],
+							 points.X[i],
+							 points.Y[i]};
+
+		// assignment to ensure the first computation
+		float shift = epsilon;
+
+		while (shift > epsilon) {
+			float mean[5];
+
+			// todo: this is just stupid, i think need a structure that can work better with
+			//  arrays, (maybe std::array?)
+			for (int k = 0; k < 5; ++k) {
+				mean[k] = centroid[k];
+			}
+			int windowPoints = 0;
+
+			// for every other point
+			for (int j = 0; j < nOfPoints; ++j) {
+
+				// initialize the current sample
+				float point[5] = {points.R[i],
+								  points.G[i],
+								  points.B[i],
+								  points.X[i],
+								  points.Y[i]};
+
+				// if the current point is inside the bandwidth window
+				if (l2Distance(centroid, point, 5) < bandwidth) {
+					// accumulate the point position
+					for (int k = 0; k < 5; ++k) {
+						mean[k] += point[k];
+					}
+					++windowPoints;
+				}
+			}
+			// compute the mean by dividing for the points taken into account
+			for (int k = 0; k < 5; ++k) {
+				mean[k] = mean[k] / windowPoints;
+			}
+			shift = l2Distance(centroid, mean, 5);
+			// todo assign the new centroid
+		}
+		// todo: assign the resulting centroid to the modes structure
     }
     return NULL;
 }
 
-// todo convertion from RGB to XYZ to L*u*v*
+// todo: convert from RGB to XYZ to L*U*V*
 
 int main()
 {
