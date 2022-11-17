@@ -1,6 +1,7 @@
 #include <iostream>
 #include "libs/ppm_io.h"
 #include <cmath>
+
 using namespace std;
 
 // structure of arrays
@@ -17,7 +18,7 @@ float distance(float r1, float g1, float b1, float x1, float y1, float r2, float
 }
 
 // euclidean distance function
-float l2Distance(float x[], float y[], size_t size) {
+float l2Distance(float* x, float* y, size_t size) {
 	float distance = 0;
 	for (int i = 0; i < size; ++i) {
 		distance += std::pow(x[i] + y[i], 2);
@@ -49,32 +50,32 @@ float* meanShift(pixels &points, size_t nOfPoints, pixels &modes, float bandwidt
 	// initialize the stop value
 	float epsilon = bandwidth / 100;
 
-	// initialize the centroids to the initial position of each point
+	/*// initialize the centroids to the initial position of each point
 	for (size_t i = 0; i < nOfPoints; ++i) {
 		modes.R[i] = points.R[i];
 		modes.G[i] = points.G[i];
 		modes.B[i] = points.B[i];
 		modes.X[i] = points.X[i];
 		modes.Y[i] = points.Y[i];
-	}
+	}*/
 
     for (int i = 0; i < nOfPoints; ++i)
 	{
-		// initialization of the centroid on the point position
-		float centroid[5] = {points.R[i],
-							 points.G[i],
-							 points.B[i],
-							 points.X[i],
-							 points.Y[i]};
+		// initialization of the mean on the point position
+		float mean[5] = {points.R[i],
+						 points.G[i],
+						 points.B[i],
+						 points.X[i],
+						 points.Y[i]};
 
 		// assignment to ensure the first computation
 		float shift = epsilon;
 
 		while (shift > epsilon) {
-			float mean[5];
+			float centroid[5] {0, 0, 0, 0, 0};
 
-			// mean <- centroid
-//			copy(begin(centroid), end(centroid), begin(mean));
+			// centroid <- mean
+//			copy(begin(mean), end(mean), begin(centroid));
 
 			// track the number of points inside the bandwidth window
 			int windowPoints = 0;
@@ -89,35 +90,120 @@ float* meanShift(pixels &points, size_t nOfPoints, pixels &modes, float bandwidt
 								  points.X[j],
 								  points.Y[j]};
 
-				if (l2Distance(centroid, point, 5) < bandwidth) {
+				if (l2Distance(mean, point, 5) < bandwidth) {
 					// accumulate the point position
 					for (int k = 0; k < 5; ++k) {
 						// todo: multiply by the chosen kernel
-						mean[k] += point[k];
+						centroid[k] += point[k];
 					}
 					++windowPoints;
 				}
 			}
 			// divide by the number of points taken into account
 			for (int k = 0; k < 5; ++k) {
-				mean[k] /= windowPoints;
+				centroid[k] /= windowPoints;
 			}
 
-			shift = l2Distance(centroid, mean, 5);
+			shift = l2Distance(mean, centroid, 5);
 
-			// update the centroid (centroid <- mean)
-			copy(begin(mean), end(mean), begin(centroid));
+			// update the mean (mean <- centroid)
+			copy(begin(centroid), end(centroid), begin(mean));
 		}
 
-		// assign the resulting centroid to the modes structure
-		modes.R[i] = centroid[0];
-		modes.G[i] = centroid[1];
-		modes.B[i] = centroid[2];
-		modes.X[i] = centroid[3];
-		modes.Y[i] = centroid[4];
+		// assign the resulting mean to the modes structure
+		modes.R[i] = mean[0];
+		modes.G[i] = mean[1];
+		modes.B[i] = mean[2];
+		modes.X[i] = mean[3];
+		modes.Y[i] = mean[4];
 	}
 
     return NULL;
+}
+
+float* meanShiftTest(float* points, size_t n, size_t dim, int* clusters, float bandwidth)
+{
+	// initialization
+	float* modes = new float[n * dim];
+	float epsilon = bandwidth * 0.01;
+	int clustersCount = 0;
+
+	for (int i = 0; i < n; ++i)
+	{
+		// label the point as "not clustered"
+		clusters[i] = -1;
+
+		// initialize of the mean on the point position
+		float mean[dim];
+		for (int k = 0; k < dim; ++k)
+		{ mean[k] = points[i * dim + k]; }
+
+		// assignment to ensure the first computation
+		float shift = epsilon;
+
+		while (shift > epsilon)
+		{
+			// initialize the centroid to 0, it will accumulate points later
+			float centroid[dim];
+			for (int k = 0; k < dim; ++k)
+			{ centroid[k] = 0; }
+
+			// track the number of points inside the bandwidth window
+			int windowPoints = 0;
+
+			for (int j = 0; j < n; ++j)
+			{
+				float point[dim];
+				for (int k = 0; k < dim; ++k)
+				{ point[k] = points[j * dim + k]; }
+
+				if (l2Distance(mean, point, dim) < bandwidth)
+				{
+					// accumulate the point position
+					for (int k = 0; k < dim; ++k) {
+						// todo: multiply by the chosen kernel
+						centroid[k] += point[k];
+					}
+					++windowPoints;
+				}
+			}
+
+			// get the centroid dividing by the number of points taken into account
+			for (int k = 0; k < dim; ++k)
+			{ centroid[k] /= windowPoints; }
+
+			shift = l2Distance(mean, centroid, dim);
+
+			// update the mean
+			for (int k = 0; k < dim; ++k)
+			{ mean[k] = centroid[k]; }
+		}
+
+		// mean now contains the mode of the point
+
+		int j = 0;
+		while (clusters[i] == -1)
+		{
+			// if the point j already belongs to a cluster, and they belong to the same mode
+			if (clusters[j] != -1 && l2Distance(mean, &modes[clusters[j] * dim], dim) < bandwidth)
+			{
+				// assign the point i to the cluster j
+				clusters[i] = clusters[j];
+			}
+			++j;
+		}
+
+		// if the point i was not assigned to a cluster
+		if (j == n) {
+			// create a new cluster associated with the mode of the point i
+			clusters[i] = clustersCount;
+			for (int k = 0; k < dim; ++k)
+			{ modes[clustersCount * dim + k] = mean[k]; }
+			clustersCount++;
+		}
+	}
+
+	return modes;
 }
 
 // todo: convert from RGB to XYZ to L*U*V*
