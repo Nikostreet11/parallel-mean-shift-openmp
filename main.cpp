@@ -60,6 +60,7 @@ float* meanShift(pixels &points, size_t nOfPoints, pixels &modes, float bandwidt
 
     for (int i = 0; i < nOfPoints; ++i)
 	{
+		// initialization of the centroid on the point position
 		float centroid[5] = {points.R[i],
 							 points.G[i],
 							 points.B[i],
@@ -72,41 +73,50 @@ float* meanShift(pixels &points, size_t nOfPoints, pixels &modes, float bandwidt
 		while (shift > epsilon) {
 			float mean[5];
 
-			// todo: this is just stupid, i think need a structure that can work better with
-			//  arrays, (maybe std::array?)
-			for (int k = 0; k < 5; ++k) {
-				mean[k] = centroid[k];
-			}
+			// mean <- centroid
+//			copy(begin(centroid), end(centroid), begin(mean));
+
+			// track the number of points inside the bandwidth window
 			int windowPoints = 0;
 
 			// for every other point
 			for (int j = 0; j < nOfPoints; ++j) {
 
 				// initialize the current sample
-				float point[5] = {points.R[i],
-								  points.G[i],
-								  points.B[i],
-								  points.X[i],
-								  points.Y[i]};
+				float point[5] = {points.R[j],
+								  points.G[j],
+								  points.B[j],
+								  points.X[j],
+								  points.Y[j]};
 
-				// if the current point is inside the bandwidth window
 				if (l2Distance(centroid, point, 5) < bandwidth) {
 					// accumulate the point position
 					for (int k = 0; k < 5; ++k) {
+						// todo: multiply by the chosen kernel
 						mean[k] += point[k];
 					}
 					++windowPoints;
 				}
 			}
-			// compute the mean by dividing for the points taken into account
+			// divide by the number of points taken into account
 			for (int k = 0; k < 5; ++k) {
-				mean[k] = mean[k] / windowPoints;
+				mean[k] /= windowPoints;
 			}
+
 			shift = l2Distance(centroid, mean, 5);
-			// todo assign the new centroid
+
+			// update the centroid (centroid <- mean)
+			copy(begin(mean), end(mean), begin(centroid));
 		}
-		// todo: assign the resulting centroid to the modes structure
-    }
+
+		// assign the resulting centroid to the modes structure
+		modes.R[i] = centroid[0];
+		modes.G[i] = centroid[1];
+		modes.B[i] = centroid[2];
+		modes.X[i] = centroid[3];
+		modes.Y[i] = centroid[4];
+	}
+
     return NULL;
 }
 
