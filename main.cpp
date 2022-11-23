@@ -17,11 +17,11 @@ float distance(float r1, float g1, float b1, float x1, float y1, float r2, float
     return sqrt(pow((r1-r2),2)+pow((g1-g2),2)+pow((b1-b2),2)+pow((x1-x2),2)+pow((y1-y2),2));
 }
 
-// euclidean distance function
-float l2Distance(float* x, float* y, size_t size) {
+// Euclidean distance function
+float l2Distance(float* row1, float* row2, size_t size) {
 	float distance = 0;
 	for (int i = 0; i < size; ++i) {
-		distance += std::pow(x[i] + y[i], 2);
+		distance += std::pow(row1[i] + row2[i], 2);
 	}
 	return sqrt(distance);
 }
@@ -41,13 +41,15 @@ float l2Distance(float* x, float* y, size_t size) {
  */
 float* meanShift(pixels &points, size_t nOfPoints, pixels &modes, float bandwidth)
 {
+    // bandwith è l'iperparametro usato come soglia per prendere i punti da usare nel calcolo della media
+
 	// sanity check
 	if (&points == &modes) {
 		printf("Error - Pixel and modes can't be the same structure!");
 		return NULL;
 	}
 
-	// initialize the stop value
+	// initialize the stop value for the mean computing
 	float epsilon = bandwidth / 100;
 
 	/*// initialize the centroids to the initial position of each point
@@ -121,10 +123,9 @@ float* meanShift(pixels &points, size_t nOfPoints, pixels &modes, float bandwidt
     return NULL;
 }
 
-float* meanShiftTest(float* points, size_t n, size_t dim, int* clusters, float bandwidth)
+int meanShiftTest(float* points, size_t n, size_t dim, int* clusters, float* modes, float bandwidth)
 {
 	// initialization
-	float* modes = new float[n * dim];
 	float epsilon = bandwidth * 0.01;
 	int clustersCount = 0;
 
@@ -203,10 +204,11 @@ float* meanShiftTest(float* points, size_t n, size_t dim, int* clusters, float b
 		}
 	}
 
-	return modes;
+	return clustersCount;
 }
 
 // todo: convert from RGB to XYZ to L*U*V*
+// todo: convert from RGB to HSV (prof advice)
 
 int main()
 {
