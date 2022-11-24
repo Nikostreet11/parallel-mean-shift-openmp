@@ -223,7 +223,7 @@ int main()
     // OPEN IMAGE PPM
     PPM ppmIn;
     int status;
-    std::string inFilepath = "../Image/image.ppm";
+    std::string inFilepath = "../Image/mele.ppm";
     status = ppmIn.read(inFilepath);
     cout <<status<<endl;
     int width= ppmIn.getW();
@@ -286,7 +286,7 @@ int main()
     int dimension = 5;
 
     cout<<"Chiamo la funzione meanShiftTest"<<endl;
-    int numOfClusters= meanShiftTest(points,width*height,dimension,clusters,modes,0.3);
+    int numOfClusters= meanShiftTest(points,width*height,dimension,clusters,modes,0.4);
 
     uint8_t buffer_image_new[width*height*3];
 
@@ -299,7 +299,7 @@ int main()
     }
 
     ppmIn.load(buffer_image_new,height,width,ppmIn.getMax(),ppmIn.getMagic());
-    std::string outFilepath = "../Image/image_out.ppm";
+    std::string outFilepath = "../Image/mele_out.ppm";
     status = ppmIn.write(outFilepath);
     cout <<status<<endl;
     cout <<"Nuova immagine salvata"<<endl;
