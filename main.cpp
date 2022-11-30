@@ -1,9 +1,11 @@
 #include <iostream>
 #include "libs/ppm_io.h"
+#include "matrix_meanshift.cpp"
 #include <cmath>
 #include <chrono>
 
-#define DIMENSION 5;
+#define DIMENSION 5
+
 using namespace std;
 using namespace chrono;
 
@@ -17,13 +19,13 @@ struct pixels{
 };
 
 // Euclidean distance function
-float l2Distance(float* row1, float* row2, size_t size) {
+/*float l2Distance(float* row1, float* row2, size_t size) {
 	float distance = 0;
 	for (int i = 0; i < size; ++i) {
 		distance += std::pow(row1[i] - row2[i], 2);
 	}
 	return sqrt(distance);
-}
+}*/
 
 /**
  * Cluster RGB pixels with the mean shift algorithm
@@ -38,7 +40,6 @@ float l2Distance(float* row1, float* row2, size_t size) {
  * @todo
  * @return the array of cluster indices
  */
-
 int meanShift(pixels &points, size_t n, pixels &modes, int* clusters, float bandwidth)
 {
     // bandwith è l'iperparametro usato come soglia per prendere i punti da usare nel calcolo della media
@@ -153,131 +154,12 @@ int meanShift(pixels &points, size_t n, pixels &modes, int* clusters, float band
 }
 
 
-int meanShiftTest(float* points, size_t n, size_t dim, int* clusters, float* modes, float bandwidth)
-{
-	// initialization
-	float epsilon = bandwidth * 0.005;
-	// epsilon usata per stoppare calcolo della media se il punto non si è spostato più di essa
-	int clustersCount = 0;
-
-	for (int i = 0; i < n; ++i)
-	{
-	    /*
-	    if(i%10==0){
-	        cout<<"Procedo..."<<endl;
-	    }
-	    */
-
-		// label the point as "not clustered"
-		clusters[i] = -1;
-
-		// initialize of the mean on the current point
-		float mean[dim];
-		for (int k = 0; k < dim; ++k)
-		{ mean[k] = points[i * dim + k]; }
-
-		// assignment to ensure the first computation
-		float shift = epsilon;
-
-		while (shift >= epsilon)
-		{
-		    //cout<<"ripeto per pixel "<< i<<endl;
-
-			// initialize the centroid to 0, it will accumulate points later
-			float centroid[dim];
-			for (int k = 0; k < dim; ++k)
-			{ centroid[k] = 0; }
-			// track the number of points inside the bandwidth window
-			int windowPoints = 0;
-
-			for (int j = 0; j < n; ++j)
-			{
-				float point[dim];
-				for (int k = 0; k < dim; ++k)
-				{ point[k] = points[j * dim + k]; }
-
-				if (l2Distance(mean, point, dim) <= bandwidth)
-				{
-					// accumulate the point position
-					for (int k = 0; k < dim; ++k) {
-						// todo: multiply by the chosen kernel
-						centroid[k] += point[k];
-					}
-					++windowPoints;
-				}
-			}
-
-			// get the centroid dividing by the number of points taken into account
-			for (int k = 0; k < dim; ++k)
-			{ centroid[k] /= windowPoints; }
-
-			shift = l2Distance(mean, centroid, dim);
-
-			// update the mean
-			for (int k = 0; k < dim; ++k)
-			{ mean[k] = centroid[k]; }
-		}
-
-		// mean now contains the mode of the point
-        /*
-        // Fixme - trova più modes anche se sembra funzionare allo stesso modo
-		int j = 0;
-		while (j<clustersCount && clusters[i] == -1)
-		{
-			// if the current mean of the point is enought similiar to a mode already existent
-			if (l2Distance(mean, &modes[j * dim], dim) < bandwidth)
-			{
-				// assign the point i to the cluster j
-				clusters[i] = j;
-			}
-			++j;
-		}
-
-		// if the point i was not assigned to a cluster
-		if (j == clustersCount) {
-			// create a new cluster associated with the mode of the point i
-			clusters[i] = clustersCount;
-            cout<<clustersCount<<endl;
-			for (int k = 0; k < dim; ++k)
-			{ modes[clustersCount * dim + k] = mean[k]; }
-			clustersCount++;
-		}
-		*/
-
-        int j = 0;
-        while (j<n && clusters[i] == -1)
-        {
-            // if the point j already belongs to a cluster, and they belong to the same mode
-            if (clusters[j]!=-1 && l2Distance(mean, &modes[clusters[j] * dim], dim) < bandwidth)
-            {
-                // assign the point i to the cluster j
-                clusters[i] = clusters[j];
-            }
-            ++j;
-        }
-
-        // if the point i was not assigned to a cluster
-        if (j == n) {
-            // create a new cluster associated with the mode of the point i
-            clusters[i] = clustersCount;
-            for (int k = 0; k < dim; ++k)
-            { modes[clustersCount * dim + k] = mean[k]; }
-            clustersCount++;
-        }
-
-	}
-
-	//cout <<"Ho finito!!!!"<<endl;
-
-	return clustersCount;
-}
-
-
 // todo: convert from RGB to XYZ to L*U*V*
 // todo: convert from RGB to HSV (prof advice)
 
 int main()
 {
+	/*
     // OPEN IMAGE PPM
     PPM ppmIn;
     int status;
@@ -361,12 +243,21 @@ int main()
     cout <<status<<endl;
     cout <<"Nuova immagine salvata"<<endl;
     cout <<"Numero di Cluster: "<<numOfClusters<<endl;
+*/
 
+	// OPEN IMAGE PPM
+	PPM ppmIn;
+	std::string inFilepath = "../Image/image.ppm";
+	int status = ppmIn.read(inFilepath);
+	cout << status << endl;
+	int width = ppmIn.getW();
+	int height = ppmIn.getH();
+	uint8_t* buffer_image = ppmIn.getImageHandler();
 
-    /*
-    float points[width*height*5];
+	// points matrix (n x DIMENSION)
+    float points[width * height * DIMENSION];
 
-    int j=0;
+    int j = 0;
     for(int i=0; i<width*height*3; i=i+3){
         points[j]=(float)buffer_image[i]/255;
         points[j+1]=(float)buffer_image[i+1]/255;
@@ -382,7 +273,7 @@ int main()
 
     cout<<"Chiamo la funzione meanShiftTest"<<endl;
     auto start_time = high_resolution_clock::now();
-    int numOfClusters= meanShiftTest(points,width*height,dimension,clusters,modes,0.4);
+    int numOfClusters= matrixMeanShift(points,width*height,dimension,clusters,modes,0.4);
     auto end_time = high_resolution_clock::now();
     cout << "SoA duration " << duration_cast<microseconds>
                                        (end_time - start_time).count() / 1000.f << " ms" << endl;
@@ -398,10 +289,9 @@ int main()
     }
 
     ppmIn.load(buffer_image_new,height,width,ppmIn.getMax(),ppmIn.getMagic());
-    std::string outFilepath = "../Image/image_bigger_out.ppm";
+    std::string outFilepath = "../Image/out.ppm";
     status = ppmIn.write(outFilepath);
     cout <<status<<endl;
     cout <<"Nuova immagine salvata"<<endl;
     cout <<"Numero di Cluster: "<<numOfClusters<<endl;
-    */
 }
