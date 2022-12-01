@@ -45,6 +45,7 @@ struct RgbPixels {
 		}
 	}
 
+	// write the elements at position i in the array
 	void write(int i, float* array) {
 		array[0] = r[i];
 		array[1] = g[i];
@@ -53,8 +54,13 @@ struct RgbPixels {
 		array[4] = y[i];
 	}
 
-	void read(int i, float* array) {
-
+	// saves the array values at the position i
+	void save(float* array, int i) {
+		r[i] = array[0];
+		g[i] = array[1];
+		b[i] = array[2];
+		x[i] = array[3];
+		y[i] = array[4];
 	}
 
 	void print(int i) {

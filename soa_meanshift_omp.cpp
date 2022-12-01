@@ -1,3 +1,5 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "openmp-use-default-none"
 #ifndef SOA_MEANSHIFT_OMP_CPP
 #define SOA_MEANSHIFT_OMP_CPP
 
@@ -18,8 +20,10 @@
  * @todo
  * @return the array of cluster indices
  */
-int soaMeanShiftOmp(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, float bandwidth)
-{
+int soaMeanShiftOmp(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, float bandwidth) {
+
+	std::cout << "Using # " << omp_get_max_threads() << " threads." << std::endl;
+
 	// bandwith è l'iperparametro usato come soglia per prendere i punti da usare nel calcolo della media
 
 	// sanity check
@@ -32,67 +36,74 @@ int soaMeanShiftOmp(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters
 	float epsilon = bandwidth * 0.05;
 	// epsilon usata per stoppare calcolo della media se il punto non si è spostato più di essa
 	int clustersCount = 0;
+	RgbPixels means;
+	means.create(points.width, points.height);
 
 	// label all points as "not clustered"
-	for (int k = 0; k < n; ++k)
-	{ clusters[k] = -1; }
+	for (int k = 0; k < n; ++k) { clusters[k] = -1; }
 
-	for (int i = 0; i < n; ++i)
+	#pragma omp parallel
 	{
-		//cout << "examining point " << i << endl;
+		#pragma omp for
+		for (int i = 0; i < n; ++i) {
+			//cout << "examining point " << i << endl;
 
-		// initialize of the mean on the current point
-		float mean[5];
-		points.write(i, mean);
+			// initialize of the mean on the current point
+			float mean[5];
+			points.write(i, mean);
 
-		// assignment to ensure the first computation
-		float shift = epsilon;
+			// assignment to ensure the first computation
+			float shift = epsilon;
 
-		while (shift >= epsilon)
-		{
-			//cout << "  iterating..." << endl;
+			while (shift >= epsilon) {
+				//cout << "  iterating..." << endl;
 
-			// initialize the centroid to 0, it will accumulate points later
-			float centroid[5];
-			for (int k = 0; k < 5; ++k) { centroid[k] = 0; }
+				// initialize the centroid to 0, it will accumulate points later
+				float centroid[5];
+				for (int k = 0; k < 5; ++k) { centroid[k] = 0; }
 
-			// track the number of points inside the bandwidth window
-			int windowPoints = 0;
+				// track the number of points inside the bandwidth window
+				int windowPoints = 0;
 
-			for (int j = 0; j < n; ++j)
-			{
-				/*float point[5]={points.r[j],
-								points.g[j],
-								points.b[j],
-								points.x[j],
-								points.y[j]};*/
-				float point[5];
-				points.write(j, point);
+				for (int j = 0; j < n; ++j) {
+					/*float point[5]={points.r[j],
+									points.g[j],
+									points.b[j],
+									points.x[j],
+									points.y[j]};*/
+					float point[5];
+					points.write(j, point);
 
-				if (l2Distance(mean, point, 5) <= bandwidth) {
-					// accumulate the point position
-					for (int k = 0; k < 5; ++k) {
-						// todo: multiply by the chosen kernel
-						centroid[k] += point[k];
+					if (l2Distance(mean, point, 5) <= bandwidth) {
+						// accumulate the point position
+						for (int k = 0; k < 5; ++k) {
+							// todo: multiply by the chosen kernel
+							centroid[k] += point[k];
+						}
+						++windowPoints;
 					}
-					++windowPoints;
 				}
+
+				//cout << "    " << windowPoints << " points examined" << endl;
+
+				// get the centroid dividing by the number of points taken into account
+				for (int k = 0; k < 5; ++k) { centroid[k] /= windowPoints; }
+
+				shift = l2Distance(mean, centroid, 5);
+
+				//cout << "    shift = " << shift << endl;
+
+				// update the mean
+				for (int k = 0; k < 5; ++k) { mean[k] = centroid[k]; }
 			}
-
-			//cout << "    " << windowPoints << " points examined" << endl;
-
-			// get the centroid dividing by the number of points taken into account
-			for (int k = 0; k < 5; ++k) { centroid[k] /= windowPoints; }
-
-			shift = l2Distance(mean, centroid, 5);
-
-			//cout << "    shift = " << shift << endl;
-
-			// update the mean
-			for (int k = 0; k < 5; ++k) { mean[k] = centroid[k]; }
+			// mean now contains the mode of the point
+			means.save(mean, i);
 		}
+	}
 
-		// mean now contains the mode of the point
+	for (int i = 0; i < n; ++i) {
+		float mean[5];
+		means.write(i, mean);
 
 		/*cout << "    mean: [ ";
 		for (int k = 0; k < 5; ++k)
@@ -143,3 +154,4 @@ int soaMeanShiftOmp(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters
 }
 
 #endif // SOA_MEANSHIFT_OMP_CPP
+#pragma clang diagnostic pop

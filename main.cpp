@@ -47,7 +47,7 @@ int main()
     cout << "calling soaMeanShift..." << endl;
 
     auto start_time = high_resolution_clock::now();
-    int numOfClusters = soaMeanShift(rgbPixels, width * height, modes, clusters, 0.4);
+    int numOfClusters = soaMeanShiftOmp(rgbPixels, width * height, modes, clusters, 0.4);
     auto end_time = high_resolution_clock::now();
 
     cout << "SoA duration " << duration_cast<microseconds> (end_time - start_time).count() / 1000.f << " ms" << endl;
