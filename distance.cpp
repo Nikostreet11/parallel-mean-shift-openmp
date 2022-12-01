@@ -1,3 +1,6 @@
+#ifndef DISTANCE_CPP
+#define DISTANCE_CPP
+
 #include <cmath>
 
 // Euclidean distance function
@@ -8,3 +11,5 @@ float l2Distance(float* row1, float* row2, size_t size) {
 	}
 	return sqrt(distance);
 }
+
+#endif // DISTANCE_CPP

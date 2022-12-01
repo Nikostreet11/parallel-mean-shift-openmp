@@ -1,0 +1,4 @@
+WINDOWS:
+  soa sequential: ~256ms
+  matrix (high): ~375ms
+LINUX:

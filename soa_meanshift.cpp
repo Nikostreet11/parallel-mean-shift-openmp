@@ -1,10 +1,8 @@
-#ifndef MATRIX_MEANSHIFT_CPP
-#define MATRIX_MEANSHIFT_CPP
+#ifndef SOA_MEANSHIFT_CPP
+#define SOA_MEANSHIFT_CPP
 
-#include <iostream>
+#include "rgb_pixels.cpp"
 #include "distance.cpp"
-
-using namespace std;
 
 /**
  * Cluster RGB RgbPixels with the mean shift algorithm
@@ -19,14 +17,19 @@ using namespace std;
  * @todo
  * @return the array of cluster indices
  */
-int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* modes, float bandwidth)
+int soaMeanShift(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, float bandwidth)
 {
+	// bandwith è l'iperparametro usato come soglia per prendere i punti da usare nel calcolo della media
+
+	// sanity check
+	if (&points == &modes) {
+		printf("Error - Pixel and modes can't be the same structure!");
+		return -1;
+	}
+
 	// initialization
-
-	// stop value for the mean-shift iterations
 	float epsilon = bandwidth * 0.05;
-
-	// counter of the number of clusters
+	// epsilon usata per stoppare calcolo della media se il punto non si è spostato più di essa
 	int clustersCount = 0;
 
 	// label all points as "not clustered"
@@ -38,9 +41,8 @@ int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* m
 		//cout << "examining point " << i << endl;
 
 		// initialize of the mean on the current point
-		float mean[dim];
-		for (int k = 0; k < dim; ++k)
-		{ mean[k] = points[i * dim + k]; }
+		float mean[5];
+		points.write(i, mean);
 
 		// assignment to ensure the first computation
 		float shift = epsilon;
@@ -50,22 +52,25 @@ int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* m
 			//cout << "  iterating..." << endl;
 
 			// initialize the centroid to 0, it will accumulate points later
-			float centroid[dim];
-			for (int k = 0; k < dim; ++k) { centroid[k] = 0; }
+			float centroid[5];
+			for (int k = 0; k < 5; ++k) { centroid[k] = 0; }
 
 			// track the number of points inside the bandwidth window
 			int windowPoints = 0;
 
 			for (int j = 0; j < n; ++j)
 			{
-				float point[dim];
-				for (int k = 0; k < dim; ++k)
-				{ point[k] = points[j * dim + k]; }
+				/*float point[5]={points.r[j],
+								points.g[j],
+								points.b[j],
+								points.x[j],
+								points.y[j]};*/
+				float point[5];
+				points.write(j, point);
 
-				if (l2Distance(mean, point, dim) <= bandwidth)
-				{
+				if (l2Distance(mean, point, 5) <= bandwidth) {
 					// accumulate the point position
-					for (int k = 0; k < dim; ++k) {
+					for (int k = 0; k < 5; ++k) {
 						// todo: multiply by the chosen kernel
 						centroid[k] += point[k];
 					}
@@ -76,21 +81,20 @@ int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* m
 			//cout << "    " << windowPoints << " points examined" << endl;
 
 			// get the centroid dividing by the number of points taken into account
-			for (int k = 0; k < dim; ++k) { centroid[k] /= windowPoints; }
+			for (int k = 0; k < 5; ++k) { centroid[k] /= windowPoints; }
 
-			shift = l2Distance(mean, centroid, dim);
+			shift = l2Distance(mean, centroid, 5);
 
 			//cout << "    shift = " << shift << endl;
 
 			// update the mean
-			for (int k = 0; k < dim; ++k)
-			{ mean[k] = centroid[k]; }
+			for (int k = 0; k < 5; ++k) { mean[k] = centroid[k]; }
 		}
 
 		// mean now contains the mode of the point
 
 		/*cout << "    mean: [ ";
-		for (int k = 0; k < dim; ++k)
+		for (int k = 0; k < 5; ++k)
 		{ cout << mean[k] << " "; }
 		cout << "]" << endl;*/
 
@@ -99,15 +103,17 @@ int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* m
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
 		{
-			// if the current mean is near to an existing mode
-			if (l2Distance(mean, &modes[j * dim], dim) < bandwidth)
+			float mode[5];
+			/*float mode[5] = {modes.r[clusters[j]],
+							 modes.g[clusters[j]],
+							 modes.b[clusters[j]],
+							 modes.x[clusters[j]],
+							 modes.y[clusters[j]]};*/
+			modes.write(j, mode);
+
+			if(l2Distance(mean, mode, 5) < bandwidth)
 			{
 				//cout << "    cluster " << j << " similar" << endl;
-
-				/*cout << "      cluster: [ ";
-				for (int k = 0; k < dim; ++k)
-				{ cout << modes[j * dim + k] << " "; }
-				cout << "]" << endl;*/
 
 				// assign the point i to the cluster j
 				clusters[i] = j;
@@ -122,8 +128,11 @@ int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* m
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			for (int k = 0; k < dim; ++k)
-			{ modes[clustersCount * dim + k] = mean[k]; }
+			modes.r[clustersCount]=mean[0];
+			modes.g[clustersCount]=mean[1];
+			modes.b[clustersCount]=mean[2];
+			modes.x[clustersCount]=mean[3];
+			modes.y[clustersCount]=mean[4];
 
 			clustersCount++;
 		}
@@ -132,4 +141,4 @@ int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* m
 	return clustersCount;
 }
 
-#endif // MATRIX_MEANSHIFT_CPP
+#endif // SOA_MEANSHIFT_CPP

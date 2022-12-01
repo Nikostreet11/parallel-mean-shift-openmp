@@ -1,258 +1,67 @@
-#include <iostream>
-#include "libs/ppm_io.h"
+#include "include/ppm_io.h"
 #include "matrix_meanshift.cpp"
-#include <cmath>
+#include "soa_meanshift.cpp"
+#include "rgb_pixels.cpp"
+#include <iostream>
 #include <chrono>
 
 #define DIMENSION 5
+#define inputFilepath "../img/image.ppm"
+#define outputFilepath "../img/image_out.ppm"
 
 using namespace std;
 using namespace chrono;
 
-// structure of arrays
-struct pixels{
-    float* R;
-    float* G;
-    float* B;
-    float* X;
-    float* Y;
-};
-
-// Euclidean distance function
-/*float l2Distance(float* row1, float* row2, size_t size) {
-	float distance = 0;
-	for (int i = 0; i < size; ++i) {
-		distance += std::pow(row1[i] - row2[i], 2);
-	}
-	return sqrt(distance);
-}*/
-
-/**
- * Cluster RGB pixels with the mean shift algorithm
- *
- * The mean shift algorithm is used in a 5-dimensional space (R, G, B, X, Y) to cluster the
- * pixels of an image.
- *
- * @param points the structure of arrays containing the pixel values
- * @param modes the resulting modes to compute
- * @param bandwidth the radius of window size to compute the mean shift
- *
- * @todo
- * @return the array of cluster indices
- */
-int meanShift(pixels &points, size_t n, pixels &modes, int* clusters, float bandwidth)
-{
-    // bandwith è l'iperparametro usato come soglia per prendere i punti da usare nel calcolo della media
-
-	// sanity check
-	if (&points == &modes) {
-		printf("Error - Pixel and modes can't be the same structure!");
-		return -1;
-	}
-
-    // initialization
-    float epsilon = bandwidth * 0.005;
-    // epsilon usata per stoppare calcolo della media se il punto non si è spostato più di essa
-    int clustersCount = 0;
-
-    for (int i = 0; i < n; ++i) {
-        /*
-        if(i%10==0){
-            cout<<"Procedo..."<<endl;
-        }
-        */
-
-        // label the point as "not clustered"
-        clusters[i] = -1;
-
-        // initialize of the mean on the current point
-        float mean[5] = {points.R[i],
-                         points.G[i],
-                         points.B[i],
-                         points.X[i],
-                         points.Y[i]};
-
-        // assignment to ensure the first computation
-        float shift = epsilon;
-
-        while (shift >= epsilon) {
-            //cout<<"ripeto per pixel "<< i<<endl;
-
-            // initialize the centroid to 0, it will accumulate points later
-            float centroid[5];
-            for (int k = 0; k < 5; ++k) { centroid[k] = 0; }
-            // track the number of points inside the bandwidth window
-            int windowPoints = 0;
-
-            for (int j = 0; j < n; ++j) {
-                float point[5]={points.R[j],
-                               points.G[j],
-                               points.B[j],
-                               points.X[j],
-                               points.Y[j]};
-
-
-                if (l2Distance(mean, point, 5) <= bandwidth) {
-                    // accumulate the point position
-                    for (int k = 0; k < 5; ++k) {
-                        // todo: multiply by the chosen kernel
-                        centroid[k] += point[k];
-                    }
-                    ++windowPoints;
-                }
-            }
-
-            // get the centroid dividing by the number of points taken into account
-            for (int k = 0; k < 5; ++k) { centroid[k] /= windowPoints; }
-
-            shift = l2Distance(mean, centroid, 5);
-
-            // update the mean
-            for (int k = 0; k < 5; ++k) { mean[k] = centroid[k]; }
-        }
-
-        for (int k = 0; k < 5; ++k) { cout<<mean[k]<<", ";}
-
-        int j = 0;
-        while (j<n && clusters[i] == -1)
-        {
-            // if the point j already belongs to a cluster, and they belong to the same mode
-            if (clusters[j]!=-1)
-            {
-                // fixme error
-                cout<<"dentro"<<endl;
-                float mode[5] = {modes.R[clusters[j]],
-                                 modes.G[clusters[j]],
-                                 modes.B[clusters[j]],
-                                 modes.X[clusters[j]],
-                                 modes.Y[clusters[j]]};
-                cout<<"dentro2"<<endl;
-                if(l2Distance(mean, mode, 5) < bandwidth){
-                    // assign the point i to the cluster j
-                    clusters[i] = clusters[j];
-                    cout<<clusters[j]<<endl;
-                }
-            }
-            ++j;
-        }
-
-        // if the point i was not assigned to a cluster
-        if (j == n) {
-            // create a new cluster associated with the mode of the point i
-            clusters[i] = clustersCount;
-            cout<<clustersCount<<endl;
-            modes.R[clustersCount]=mean[0];
-            modes.G[clustersCount]=mean[1];
-            modes.B[clustersCount]=mean[2];
-            modes.X[clustersCount]=mean[3];
-            modes.Y[clustersCount]=mean[4];
-            clustersCount++;
-        }
-    }
-
-    return clustersCount;
-}
-
-
 // todo: convert from RGB to XYZ to L*U*V*
 // todo: convert from RGB to HSV (prof advice)
+// todo: parallelize using OpenMP
+// todo: parallelize using Cuda
 
 int main()
 {
-	/*
-    // OPEN IMAGE PPM
-    PPM ppmIn;
-    int status;
-    std::string inFilepath = "../Image/image_bigger.ppm";
-    status = ppmIn.read(inFilepath);
-    cout <<status<<endl;
-    int width= ppmIn.getW();
-    int height= ppmIn.getH();
-    uint8_t* buffer_image= ppmIn.getImageHandler();
+	// open the ppm image
+	PPM ppm;
+	if (ppm.read(inputFilepath) != 0)
+	{
+		cout << "ERROR: failed to open the image";
+		return -1;
+	}
 
+	int width = ppm.getW();
+	int height = ppm.getH();
+	uint8_t* buffer_image = ppm.getImageHandler();
+/*
+    // create the structure of arrays (soa)
+    RgbPixels rgbPixels;
+	rgbPixels.create(width, height);
+	rgbPixels.load(buffer_image);
 
-    // CREATION OF 5 ARRAY R, G, B, X, Y
-    pixels Pixels;
-    Pixels.R= new float[width*height];
-    Pixels.G= new float[width*height];
-    Pixels.B= new float[width*height];
-    Pixels.X= new float[width*height];
-    Pixels.Y= new float[width*height];
+	RgbPixels modes;
+	modes.create(width, height);
 
+    int clusters[width * height];
 
-    int j=0;
-    for(int i=0; i<width*height*3; i++){
-        if(i%3==0){
-            Pixels.R[j]=(float)buffer_image[i]/255;
-        } else if (i%3==1){
-            Pixels.G[j]=(float)buffer_image[i]/255;
-        } else{
-            Pixels.B[j]=(float)buffer_image[i]/255;
-            Pixels.X[j]=(float)((i/3)%width)/(width-1);
-            Pixels.Y[j]=(float)((i/3)/width)/(height-1);
-            j++;
-        }
-    }
+    cout << "calling soaMeanShift..." << endl;
 
-    pixels modes;
-    modes.R= new float[width*height];
-    modes.G= new float[width*height];
-    modes.B= new float[width*height];
-    modes.X= new float[width*height];
-    modes.Y= new float[width*height];
-
-    int clusters[width*height];
-
-    cout<<"Chiamo la funzione meanShiftTest"<<endl;
     auto start_time = high_resolution_clock::now();
-    int numOfClusters= meanShift(Pixels,width*height,modes, clusters,0.4);
+    int numOfClusters = soaMeanShift(rgbPixels, width * height, modes, clusters, 0.4);
     auto end_time = high_resolution_clock::now();
-    cout << "SoA duration " << duration_cast<microseconds>
-                                       (end_time - start_time).count() / 1000.f << " ms" << endl;
 
-    delete[] Pixels.R;
-    delete[] Pixels.G;
-    delete[] Pixels.B;
-    delete[] Pixels.X;
-    delete[] Pixels.Y;
+    cout << "SoA duration " << duration_cast<microseconds> (end_time - start_time).count() / 1000.f << " ms" << endl;
 
-    uint8_t buffer_image_new[width*height*3];
-
-    for(int l=0; l<width*height; l++){
-        cout<<clusters[l]<<", ";
-    }
-    cout<<endl;
+    uint8_t buffer_image_new[width * height * 3];
 
     int k=0;
     for(int i=0; i<width*height*3; i+=3){
-        buffer_image_new[i]=(uint8_t)(modes.R[clusters[k]]*255);
-        buffer_image_new[i+1]=(uint8_t)(modes.G[clusters[k]]*255);
-        buffer_image_new[i+2]=(uint8_t)(modes.B[clusters[k]]*255);
+        buffer_image_new[i]=(uint8_t)(modes.r[clusters[k]]*255);
+        buffer_image_new[i+1]=(uint8_t)(modes.g[clusters[k]]*255);
+        buffer_image_new[i+2]=(uint8_t)(modes.b[clusters[k]]*255);
         k++;
     }
 
-    delete[] modes.R;
-    delete[] modes.G;
-    delete[] modes.B;
-    delete[] modes.X;
-    delete[] modes.Y;
-
-    ppmIn.load(buffer_image_new,height,width,ppmIn.getMax(),ppmIn.getMagic());
-    std::string outFilepath = "../Image/image_bigger_out.ppm";
-    status = ppmIn.write(outFilepath);
-    cout <<status<<endl;
-    cout <<"Nuova immagine salvata"<<endl;
-    cout <<"Numero di Cluster: "<<numOfClusters<<endl;
+	rgbPixels.destroy();
+    modes.destroy();
 */
-
-	// OPEN IMAGE PPM
-	PPM ppmIn;
-	std::string inFilepath = "../Image/image.ppm";
-	int status = ppmIn.read(inFilepath);
-	cout << status << endl;
-	int width = ppmIn.getW();
-	int height = ppmIn.getH();
-	uint8_t* buffer_image = ppmIn.getImageHandler();
 
 	// points matrix (n x DIMENSION)
     float points[width * height * DIMENSION];
@@ -271,27 +80,34 @@ int main()
     int clusters[width*height];
     int dimension = 5;
 
-    cout<<"Chiamo la funzione meanShiftTest"<<endl;
+    cout<<"Chiamo la funzione matrixMeanShift"<<endl;
     auto start_time = high_resolution_clock::now();
-    int numOfClusters= matrixMeanShift(points,width*height,dimension,clusters,modes,0.4);
+    int numOfClusters = matrixMeanShift(points,width*height,dimension,clusters,modes,0.4);
     auto end_time = high_resolution_clock::now();
-    cout << "SoA duration " << duration_cast<microseconds>
+    cout << "duration " << duration_cast<microseconds>
                                        (end_time - start_time).count() / 1000.f << " ms" << endl;
 
     uint8_t buffer_image_new[width*height*3];
 
     int k=0;
-    for(int i=0; i<width*height*3; i+=3){
-        buffer_image_new[i]=(uint8_t)(modes[clusters[k]*dimension]*255);
-        buffer_image_new[i+1]=(uint8_t)(modes[clusters[k]*dimension+1]*255);
-        buffer_image_new[i+2]=(uint8_t)(modes[clusters[k]*dimension+2]*255);
-        k++;
-    }
+    for(int i=0; i<width*height*3; i+=3) {
+		buffer_image_new[i] = (uint8_t) (modes[clusters[k] * dimension] * 255);
+		buffer_image_new[i + 1] = (uint8_t) (modes[clusters[k] * dimension + 1] * 255);
+		buffer_image_new[i + 2] = (uint8_t) (modes[clusters[k] * dimension + 2] * 255);
+		k++;
+	}
 
-    ppmIn.load(buffer_image_new,height,width,ppmIn.getMax(),ppmIn.getMagic());
-    std::string outFilepath = "../Image/out.ppm";
-    status = ppmIn.write(outFilepath);
-    cout <<status<<endl;
-    cout <<"Nuova immagine salvata"<<endl;
-    cout <<"Numero di Cluster: "<<numOfClusters<<endl;
+    ppm.load(buffer_image_new, height, width, ppm.getMax(), ppm.getMagic());
+
+	// write the output ppm image
+	if (ppm.write(outputFilepath) != 0)
+	{
+		cout << "ERROR: failed to write the image";
+		return -1;
+	}
+
+    cout << "new image saved" << endl;
+    cout << "number of clusters: " << numOfClusters << endl;
+
+	return 0;
 }
