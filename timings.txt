@@ -2,3 +2,5 @@ WINDOWS:
   soa sequential: ~256ms
   matrix (high): ~375ms
 LINUX:
+  soa sequential: ~177ms
+  matrix (high): ~286ms

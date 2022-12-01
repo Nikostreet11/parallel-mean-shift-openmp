@@ -1,6 +1,7 @@
 #include "include/ppm_io.h"
 #include "matrix_meanshift.cpp"
 #include "soa_meanshift.cpp"
+#include "soa_meanshift_omp.cpp"
 #include "rgb_pixels.cpp"
 #include <iostream>
 #include <chrono>
