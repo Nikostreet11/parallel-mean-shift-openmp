@@ -7,8 +7,8 @@
 #include <chrono>
 
 #define DIMENSION 5
-#define inputFilepath "../img/image.ppm"
-#define outputFilepath "../img/image_out.ppm"
+#define inputFilepath "../img/image_bigger.ppm"
+#define outputFilepath "../img/image_bigger_out.ppm"
 
 using namespace std;
 using namespace chrono;
