@@ -30,7 +30,9 @@ int main()
 	int width = ppm.getW();
 	int height = ppm.getH();
 	uint8_t* buffer_image = ppm.getImageHandler();
-/*
+
+    // SoA_MEAN_SHIFT START
+
     // create the structure of arrays (soa)
     RgbPixels rgbPixels;
 	rgbPixels.create(width, height);
@@ -61,7 +63,12 @@ int main()
 
 	rgbPixels.destroy();
     modes.destroy();
-*/
+
+    // SoA_MEAN_SHIFT END
+
+ /*
+
+  // MATRIX_MEAN_SHIFT START
 
 	// points matrix (n x DIMENSION)
     float points[width * height * DIMENSION];
@@ -96,6 +103,10 @@ int main()
 		buffer_image_new[i + 2] = (uint8_t) (modes[clusters[k] * dimension + 2] * 255);
 		k++;
 	}
+
+  // MATRIX_MEAN_SHIFT END
+
+    */
 
     ppm.load(buffer_image_new, height, width, ppm.getMax(), ppm.getMagic());
 
