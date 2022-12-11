@@ -15,7 +15,6 @@ using namespace chrono;
 
 // todo: convert from RGB to XYZ to L*U*V*
 // todo: convert from RGB to HSV (prof advice)
-// todo: parallelize using OpenMP
 // todo: parallelize using Cuda
 
 int main()

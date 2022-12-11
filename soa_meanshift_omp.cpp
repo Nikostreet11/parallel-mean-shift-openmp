@@ -22,7 +22,7 @@
  */
 int soaMeanShiftOmp(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, float bandwidth) {
 
-	std::cout << "Using # " << omp_get_max_threads() << " threads." << std::endl;
+	//printf("Using # %d threads.", omp_get_max_threads());
 
 	// bandwith è l'iperparametro usato come soglia per prendere i punti da usare nel calcolo della media
 
@@ -42,7 +42,8 @@ int soaMeanShiftOmp(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters
 	// label all points as "not clustered"
 	for (int k = 0; k < n; ++k) { clusters[k] = -1; }
 
-	#pragma omp parallel
+	#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, bandwidth, n)
+	//#pragma omp parallel
 	{
 		#pragma omp for
 		for (int i = 0; i < n; ++i) {
