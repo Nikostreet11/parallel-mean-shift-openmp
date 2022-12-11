@@ -3,6 +3,10 @@
 
 // structure of arrays
 struct RgbPixels {
+	static const int COLOR_SPACE_DIMENSION = 3;
+	static const int SPACE_DIMENSION = 5;
+	static const int MAX_VALUE = 255;
+
 	int width;
 	int height;
 	float* r;

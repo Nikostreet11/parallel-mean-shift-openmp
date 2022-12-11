@@ -1,50 +1,34 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "openmp-use-default-none"
-#ifndef SOA_MEANSHIFT_OMP_CPP
-#define SOA_MEANSHIFT_OMP_CPP
+#ifndef MATRIX_MEANSHIFT_OMP_CPP
+#define MATRIX_MEANSHIFT_OMP_CPP
 
-#include "rgb_pixels.cpp"
+#include <iostream>
 #include "distance.cpp"
-#include <omp.h>
 
-// todo: uncomment this
-//#define dimension 5
+using namespace std;
 
 /**
- * Cluster RGB points with the mean shift algorithm
+ * Cluster RGB RgbPixels with the mean shift algorithm
  *
- * The mean shift algorithm is used in a 5-dimensional space (R, G, B, X, Y) to cluster the points of an image.
+ * The mean shift algorithm is used in a 5-dimensional space (r, g, b, x, y) to cluster the
+ * RgbPixels of an image.
  *
  * @param points the structure of arrays containing the pixel values
- * @param nOfPoints the number of points
- * @param bandwidth the radius of the window size used to select the points to take into account
- * @param modes (output) the SoA containing the computed modes (size must be nOfPoints)
- * @param clusters (output) an index array that associates each pixel to its mode (size must be nOfPoints)
+ * @param modes the resulting modes to compute
+ * @param bandwidth the radius of window size to compute the mean shift
  *
+ * @todo
  * @return the array of cluster indices
  */
-int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels &modes, int* clusters)
+int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, size_t dimension, float* modes, int* clusters)
 {
-	// todo: comment this
-	int dimension = 5;
-
-	// sanity check
-	if (&points == &modes) {
-		printf("Error - Pixel and modes can't be the same structure!");
-		return -1;
-	}
-
 	// stop value to check for the shift convergence
 	float epsilon = bandwidth * 0.05;
 
-	// structure of array to save the final mean of each pixel
-	RgbPixels means;
-	means.create(points.width, points.height);
-
-	//printf("Meanshift: first phase start\nOfPoints");
+	// matrix to save the final mean of each pixel
+	float means[nOfPoints * dimension];
 
 	// compute the means
-#pragma omp parallel /*default(none)*/ shared(points, means, modes) firstprivate(epsilon, bandwidth, nOfPoints)//, dimension)
+#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, bandwidth, nOfPoints, dimension)
 	{
 #pragma omp for
 		for (int i = 0; i < nOfPoints; ++i) {
@@ -52,7 +36,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 
 			// initialize the mean on the current point
 			float mean[dimension];
-			points.write(i, mean);
+			for (int k = 0; k < dimension; ++k) { mean[k] = points[i * dimension + k]; }
 
 			// assignment to ensure the first computation
 			float shift = epsilon;
@@ -62,14 +46,14 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 
 				// initialize the centroid to 0, it will accumulate points later
 				float centroid[dimension];
-				for (int k = 0; k < 5; ++k) { centroid[k] = 0; }
+				for (int k = 0; k < dimension; ++k) { centroid[k] = 0; }
 
 				// track the number of points inside the bandwidth window
 				int windowPoints = 0;
 
 				for (int j = 0; j < nOfPoints; ++j) {
 					float point[dimension];
-					points.write(j, point);
+					for (int k = 0; k < dimension; ++k) { point[k] = points[j * dimension + k]; }
 
 					if (l2Distance(mean, point, dimension) <= bandwidth) {
 						// accumulate the point position
@@ -95,7 +79,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 			}
 
 			// mean now contains the mode of the point
-			means.save(mean, i);
+			for (int k = 0; k < dimension; ++k) { means[i * dimension + k] = mean[k]; };
 		}
 	}
 
@@ -109,7 +93,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 
 	for (int i = 0; i < nOfPoints; ++i) {
 		float mean[5];
-		means.write(i, mean);
+		for (int k = 0; k < dimension; ++k) { mean[k] = means[i * dimension + k]; }
 
 		/*printf("    Mean: [ ");
 		for (int k = 0; k < dimension; ++k)
@@ -123,10 +107,10 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 		{
 			// select the current mode
 			float mode[dimension];
-			modes.write(j, mode);
+			for (int k = 0; k < dimension; ++k) { mode[k] = modes[j * dimension + k]; }
 
 			// if the mean is close enough to the current mode
-			if(l2Distance(mean, mode, dimension) < bandwidth)
+			if (l2Distance(mean, mode, dimension) < bandwidth)
 			{
 				//printf("    Cluster %d similar\n", j);
 
@@ -140,7 +124,6 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 			}
 			++j;
 		}
-
 		// if the point i was not assigned to a cluster
 		if (clusters[i] == -1) {
 			//printf("    No similar clusters, creating a new one... (%d)", clustersCount);
@@ -148,7 +131,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			modes.save(mean, clustersCount);
+			for (int k = 0; k < dimension; ++k) { modes[clustersCount * dimension + k] = mean[k]; }
 
 			clustersCount++;
 		}
@@ -158,5 +141,4 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 	return clustersCount;
 }
 
-#endif // SOA_MEANSHIFT_OMP_CPP
-#pragma clang diagnostic pop
+#endif // MATRIX_MEANSHIFT_OMP_CPP

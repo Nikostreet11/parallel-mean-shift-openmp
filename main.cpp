@@ -1,124 +1,185 @@
 #include "include/ppm_io.h"
 #include "matrix_meanshift.cpp"
+#include "matrix_meanshift_omp.cpp"
 #include "soa_meanshift.cpp"
 #include "soa_meanshift_omp.cpp"
 #include "rgb_pixels.cpp"
 #include <iostream>
 #include <chrono>
 
-#define DIMENSION 5
-#define inputFilepath "../img/image_bigger.ppm"
-#define outputFilepath "../img/image_bigger_out.ppm"
+#define INPUT_PATH "../img/image_bigger.ppm"
+#define OUTPUT_PATH "../img/image_bigger_out.ppm"
+#define ITERATIONS 10
+#define BANDWIDTH 0.4
+
+/* ----- TIMINGS ------------------------------
+ * 100x100 image, Windows, 12 cores, 18 threads
+ * 	 Matrix sequential: 3609ms
+ * 	 Matrix OpenMP:		1029ms
+ * 	   Speedup: 		3.5
+ *   SoA sequential:	3834ms
+ * 	 SoA OpenMP:		1060ms
+ * 	   Speedup: 		3.6
+ *
+ * 100x100 image, Linux, 8 cores, 12 threads
+ * 	 Matrix sequential:
+ * 	 Matrix OpenMP:
+ * 	   Speedup:
+ *   SoA sequential:
+ * 	 SoA OpenMP:
+ * 	   Speedup:
+ *
+ * Averaged on 10 iterations
+ * --------------------------------------------
+ */
+
+// todo: cluster in the HSV space
+// todo: cluster in the L*U*V* space
+// todo: kernel multiplication
+// todo: parallelize using Cuda
 
 using namespace std;
 using namespace chrono;
-
-// todo: convert from RGB to XYZ to L*U*V*
-// todo: convert from RGB to HSV (prof advice)
-// todo: parallelize using Cuda
 
 int main()
 {
 	// open the ppm image
 	PPM ppm;
-	if (ppm.read(inputFilepath) != 0)
+	if (ppm.read(INPUT_PATH) != 0)
 	{
 		cout << "ERROR: failed to open the image";
 		return -1;
 	}
-
 	int width = ppm.getW();
 	int height = ppm.getH();
-	uint8_t* buffer_image = ppm.getImageHandler();
+	int nOfPixels = width * height;
+	uint8_t* inputBuffer = ppm.getImageHandler();
 
-    // SoA_MEAN_SHIFT START
+	// MATRIX MEANSHIFT START //
 
-    // create the structure of arrays (soa)
-    RgbPixels rgbPixels;
-	rgbPixels.create(width, height);
-	rgbPixels.load(buffer_image);
+	// create the matrices
+	int rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
+	int rgbxySpaceSize = RgbPixels::SPACE_DIMENSION;
+	int rgbMaxValue = RgbPixels::MAX_VALUE;
+    float pixels[nOfPixels * rgbxySpaceSize];
+	float modes[nOfPixels * rgbxySpaceSize];
 
-	RgbPixels modes;
-	modes.create(width, height);
-
-    int clusters[width * height];
-
-    cout << "calling soaMeanShift..." << endl;
-
-    auto start_time = high_resolution_clock::now();
-    int numOfClusters = soaMeanShiftOmp(rgbPixels, width * height, modes, clusters, 0.4);
-    auto end_time = high_resolution_clock::now();
-
-    cout << "SoA duration " << duration_cast<microseconds> (end_time - start_time).count() / 1000.f << " ms" << endl;
-
-    uint8_t buffer_image_new[width * height * 3];
-
-    int k=0;
-    for(int i=0; i<width*height*3; i+=3){
-        buffer_image_new[i]=(uint8_t)(modes.r[clusters[k]]*255);
-        buffer_image_new[i+1]=(uint8_t)(modes.g[clusters[k]]*255);
-        buffer_image_new[i+2]=(uint8_t)(modes.b[clusters[k]]*255);
-        k++;
+	// initialize the pixel data
+    for (int i = 0; i < nOfPixels; ++i)
+	{
+		pixels[i * rgbxySpaceSize]     = (float) inputBuffer[i * rgbPixelSize]     / rgbMaxValue; // R
+        pixels[i * rgbxySpaceSize + 1] = (float) inputBuffer[i * rgbPixelSize + 1] / rgbMaxValue; // G
+        pixels[i * rgbxySpaceSize + 2] = (float) inputBuffer[i * rgbPixelSize + 2] / rgbMaxValue; // B
+        pixels[i * rgbxySpaceSize + 3] = (float) ((i) % width) / (width - 1);					  // X
+        pixels[i * rgbxySpaceSize + 4] = (float) ((i) / width) / (height - 1);					  // Y
     }
 
-	rgbPixels.destroy();
-    modes.destroy();
+	// create the index array
+	int clusters[nOfPixels];
 
-    // SoA_MEAN_SHIFT END
+	// create the result variables
+	int nOfClusters;
+	float totalTime = 0;
 
- /*
+	// function loop
+	printf("Using # %d threads.\n", omp_get_max_threads());
+	for (int i = 0; i < ITERATIONS; ++i)
+	{
+		printf("Calling the MeanShift function... (%d)\n", i);
 
-  // MATRIX_MEAN_SHIFT START
+		// time the function
+		auto start_time = high_resolution_clock::now();
+		nOfClusters = matrixMeanShiftOmp(pixels, nOfPixels, BANDWIDTH, rgbxySpaceSize, modes, clusters);
+		auto end_time = high_resolution_clock::now();
 
-	// points matrix (n x DIMENSION)
-    float points[width * height * DIMENSION];
-
-    int j = 0;
-    for(int i=0; i<width*height*3; i=i+3){
-        points[j]=(float)buffer_image[i]/255;
-        points[j+1]=(float)buffer_image[i+1]/255;
-        points[j+2]=(float)buffer_image[i+2]/255;
-        points[j+3]=(float)((i/3)%width)/(width-1);
-        points[j+4]=(float)((i/3)/width)/(height-1);
-        j+=5;
-    }
-
-    float modes[width*height*5];
-    int clusters[width*height];
-    int dimension = 5;
-
-    cout<<"Chiamo la funzione matrixMeanShift"<<endl;
-    auto start_time = high_resolution_clock::now();
-    int numOfClusters = matrixMeanShift(points,width*height,dimension,clusters,modes,0.4);
-    auto end_time = high_resolution_clock::now();
-    cout << "duration " << duration_cast<microseconds>
-                                       (end_time - start_time).count() / 1000.f << " ms" << endl;
-
-    uint8_t buffer_image_new[width*height*3];
-
-    int k=0;
-    for(int i=0; i<width*height*3; i+=3) {
-		buffer_image_new[i] = (uint8_t) (modes[clusters[k] * dimension] * 255);
-		buffer_image_new[i + 1] = (uint8_t) (modes[clusters[k] * dimension + 1] * 255);
-		buffer_image_new[i + 2] = (uint8_t) (modes[clusters[k] * dimension + 2] * 255);
-		k++;
+		totalTime += duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
 	}
 
-  // MATRIX_MEAN_SHIFT END
+	float averageTime = totalTime / ITERATIONS;
 
-    */
+	// print the results
+	printf("Matrix timings: (measured on %d iterations)\n", ITERATIONS);
+	printf("  total:   %fms\n", totalTime);
+	printf("  average: %fms\n", averageTime);
+	printf("Number of clusters: %d\n", nOfClusters);
 
-    ppm.load(buffer_image_new, height, width, ppm.getMax(), ppm.getMagic());
+    /*uint8_t outputBuffer[nOfPixels * rgbPixelSize];
+    for (int i = 0; i < nOfPixels; ++i)
+	{
+		outputBuffer[i * rgbPixelSize]	   = (uint8_t) (modes[clusters[i] * rgbxySpaceSize]     * rgbMaxValue); // R
+		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 1] * rgbMaxValue); // G
+		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 2] * rgbMaxValue); // B
+	}*/
+
+  	// MATRIX MEANSHIFT END //
+
+	printf("\n");
+
+	// SOA MEANSHIFT START //
+
+    // create the structures of arrays
+    RgbPixels soaPixels;
+	RgbPixels soaModes;
+	soaPixels.create(width, height);
+	soaModes.create(width, height);
+
+	// initialize the pixel data
+	soaPixels.load(inputBuffer);
+
+	// create the index array
+    //int clusters[nOfPixels];
+
+	// create the result variables
+	//int nOfClusters;
+	totalTime = 0;
+
+	// function loop
+	printf("Using # %d threads.\n", omp_get_max_threads());
+	for (int i = 0; i < ITERATIONS; ++i)
+	{
+		printf("Calling the MeanShift function... (%d)\n", i);
+
+		// time the function
+		auto start_time = high_resolution_clock::now();
+		nOfClusters = soaMeanShiftOmp(soaPixels, nOfPixels, BANDWIDTH, soaModes, clusters);
+		auto end_time = high_resolution_clock::now();
+
+		totalTime += duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
+	}
+
+	averageTime = totalTime / ITERATIONS;
+
+	// print the results
+	printf("SoA timings: (measured on %d iterations)\n", ITERATIONS);
+	printf("  total:   %fms\n", totalTime);
+	printf("  average: %fms\n", averageTime);
+	printf("Number of clusters: %d\n", nOfClusters);
+
+	// create the output image buffer
+	rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
+	rgbMaxValue = RgbPixels::MAX_VALUE;
+    uint8_t outputBuffer[nOfPixels * rgbPixelSize];
+    for(int i = 0; i < nOfPixels; ++i)
+    {
+		outputBuffer[i * rgbPixelSize]     = (uint8_t) (soaModes.r[clusters[i]] * rgbMaxValue); // R
+		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (soaModes.g[clusters[i]] * rgbMaxValue); // G
+		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (soaModes.b[clusters[i]] * rgbMaxValue); // B
+    }
+
+	// free the memory
+	soaPixels.destroy();
+	soaModes.destroy();
+
+	// SOA MEANSHIFT END //
+
+	ppm.load(outputBuffer, height, width, ppm.getMax(), ppm.getMagic());
 
 	// write the output ppm image
-	if (ppm.write(outputFilepath) != 0)
+	if (ppm.write(OUTPUT_PATH) != 0)
 	{
 		cout << "ERROR: failed to write the image";
 		return -1;
 	}
-
-    cout << "new image saved" << endl;
-    cout << "number of clusters: " << numOfClusters << endl;
 
 	return 0;
 }

@@ -3,23 +3,24 @@
 
 #include "rgb_pixels.cpp"
 #include "distance.cpp"
+#include <omp.h>
 
 /**
- * Cluster RGB RgbPixels with the mean shift algorithm
+ * Cluster RGB pixels with the mean shift algorithm
  *
- * The mean shift algorithm is used in a 5-dimensional space (r, g, b, x, y) to cluster the
- * RgbPixels of an image.
+ * The mean shift algorithm is used in a 5-dimensional space (R, G, B, X, Y) to cluster the pixels of an image.
  *
- * @param points the structure of arrays containing the pixel values
- * @param modes the resulting modes to compute
- * @param bandwidth the radius of window size to compute the mean shift
+ * @param pixels the structure of arrays containing the pixel values
+ * @param n the number of pixels
+ * @param bandwidth the radius of the window size used to select the points to take into account
+ * @param modes (output) the SoA containing the computed modes (size must be n)
+ * @param clusters (output) an index array that associates each pixel to its mode (size must be n)
  *
- * @todo
  * @return the array of cluster indices
  */
-int soaMeanShift(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, float bandwidth)
+int soaMeanShift(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels &modes, int* clusters)
 {
-	// bandwith è l'iperparametro usato come soglia per prendere i punti da usare nel calcolo della media
+	int dimension = RgbPixels::SPACE_DIMENSION;
 
 	// sanity check
 	if (&points == &modes) {
@@ -27,50 +28,43 @@ int soaMeanShift(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, f
 		return -1;
 	}
 
-	// initialization
+	// stop value to check for the shift convergence
 	float epsilon = bandwidth * 0.05;
-	// epsilon usata per stoppare calcolo della media se il punto non si è spostato più di essa
-	int clustersCount = 0;
 
-	// label all points as "not clustered"
-	for (int k = 0; k < n; ++k)
-	{ clusters[k] = -1; }
+	// structure of array to save the final mean of each pixel
+	RgbPixels means;
+	means.create(points.width, points.height);
 
-	for (int i = 0; i < n; ++i)
-	{
-		//cout << "examining point " << i << endl;
+	//printf("Meanshift: first phase start\nOfPoints");
 
-		// initialize of the mean on the current point
-		float mean[5];
+	// compute the means
+	for (int i = 0; i < nOfPoints; ++i) {
+		//printf("  Examining point %d\n", i);
+
+		// initialize the mean on the current point
+		float mean[dimension];
 		points.write(i, mean);
 
 		// assignment to ensure the first computation
 		float shift = epsilon;
 
-		while (shift >= epsilon)
-		{
-			//cout << "  iterating..." << endl;
+		while (shift >= epsilon) {
+			//printf("  iterating...\n");
 
 			// initialize the centroid to 0, it will accumulate points later
-			float centroid[5];
+			float centroid[dimension];
 			for (int k = 0; k < 5; ++k) { centroid[k] = 0; }
 
 			// track the number of points inside the bandwidth window
 			int windowPoints = 0;
 
-			for (int j = 0; j < n; ++j)
-			{
-				/*float point[5]={points.r[j],
-								points.g[j],
-								points.b[j],
-								points.x[j],
-								points.y[j]};*/
-				float point[5];
+			for (int j = 0; j < nOfPoints; ++j) {
+				float point[dimension];
 				points.write(j, point);
 
-				if (l2Distance(mean, point, 5) <= bandwidth) {
+				if (l2Distance(mean, point, dimension) <= bandwidth) {
 					// accumulate the point position
-					for (int k = 0; k < 5; ++k) {
+					for (int k = 0; k < dimension; ++k) {
 						// todo: multiply by the chosen kernel
 						centroid[k] += point[k];
 					}
@@ -78,42 +72,58 @@ int soaMeanShift(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, f
 				}
 			}
 
-			//cout << "    " << windowPoints << " points examined" << endl;
+			//printf("    %d points examined\n", windowPoints);
 
 			// get the centroid dividing by the number of points taken into account
-			for (int k = 0; k < 5; ++k) { centroid[k] /= windowPoints; }
+			for (int k = 0; k < dimension; ++k) { centroid[k] /= windowPoints; }
 
-			shift = l2Distance(mean, centroid, 5);
+			shift = l2Distance(mean, centroid, dimension);
 
-			//cout << "    shift = " << shift << endl;
+			//printf("    shift = %f\n", shift);
 
 			// update the mean
-			for (int k = 0; k < 5; ++k) { mean[k] = centroid[k]; }
+			for (int k = 0; k < dimension; ++k) { mean[k] = centroid[k]; }
 		}
 
 		// mean now contains the mode of the point
+		means.save(mean, i);
+	}
 
-		/*cout << "    mean: [ ";
-		for (int k = 0; k < 5; ++k)
-		{ cout << mean[k] << " "; }
-		cout << "]" << endl;*/
+	//printf("Meanshift: second phase start\n");
 
-		//cout << "  finding a cluster..." << endl;
+	// label all points as "not clustered"
+	for (int k = 0; k < nOfPoints; ++k) { clusters[k] = -1; }
+
+	// counter for the number of discovered clusters
+	int clustersCount = 0;
+
+	for (int i = 0; i < nOfPoints; ++i) {
+		float mean[5];
+		means.write(i, mean);
+
+		/*printf("    Mean: [ ");
+		for (int k = 0; k < dimension; ++k)
+		{ printf("%f ", mean[k]); }
+		printf("]\n");*/
+
+		//printf("  Finding a cluster...\n");
 
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
 		{
-			float mode[5];
-			/*float mode[5] = {modes.r[clusters[j]],
-							 modes.g[clusters[j]],
-							 modes.b[clusters[j]],
-							 modes.x[clusters[j]],
-							 modes.y[clusters[j]]};*/
+			// select the current mode
+			float mode[dimension];
 			modes.write(j, mode);
 
-			if(l2Distance(mean, mode, 5) < bandwidth)
+			// if the mean is close enough to the current mode
+			if(l2Distance(mean, mode, dimension) < bandwidth)
 			{
-				//cout << "    cluster " << j << " similar" << endl;
+				//printf("    Cluster %d similar\n", j);
+
+				/*printf("    Cluster: [ ");
+				for (int k = 0; k < dimension; ++k)
+				{ printf("%f ", mode[k]); }
+				printf("]\n");*/
 
 				// assign the point i to the cluster j
 				clusters[i] = j;
@@ -123,21 +133,18 @@ int soaMeanShift(RgbPixels &points, size_t n, RgbPixels &modes, int* clusters, f
 
 		// if the point i was not assigned to a cluster
 		if (clusters[i] == -1) {
-			//cout << "    no similar cluster, create a new one (" << clustersCount << ")" << endl;
+			//printf("    No similar clusters, creating a new one... (%d)", clustersCount);
 
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			modes.r[clustersCount]=mean[0];
-			modes.g[clustersCount]=mean[1];
-			modes.b[clustersCount]=mean[2];
-			modes.x[clustersCount]=mean[3];
-			modes.y[clustersCount]=mean[4];
+			modes.save(mean, clustersCount);
 
 			clustersCount++;
 		}
 	}
 
+	//printf("Meanshift: end\n");
 	return clustersCount;
 }
 

@@ -19,53 +19,42 @@ using namespace std;
  * @todo
  * @return the array of cluster indices
  */
-int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* modes, float bandwidth)
+int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, size_t dimension, float* modes, int* clusters)
 {
-	// initialization
-
-	// stop value for the mean-shift iterations
+	// stop value to check for the shift convergence
 	float epsilon = bandwidth * 0.05;
 
-	// counter of the number of clusters
-	int clustersCount = 0;
+	// matrix to save the final mean of each pixel
+	float means[nOfPoints * dimension];
 
-	// label all points as "not clustered"
-	for (int k = 0; k < n; ++k)
-	{ clusters[k] = -1; }
+	// compute the means
+	for (int i = 0; i < nOfPoints; ++i) {
+		//printf("  Examining point %d\n", i);
 
-	for (int i = 0; i < n; ++i)
-	{
-		//cout << "examining point " << i << endl;
-
-		// initialize of the mean on the current point
-		float mean[dim];
-		for (int k = 0; k < dim; ++k)
-		{ mean[k] = points[i * dim + k]; }
+		// initialize the mean on the current point
+		float mean[dimension];
+		for (int k = 0; k < dimension; ++k) { mean[k] = points[i * dimension + k]; }
 
 		// assignment to ensure the first computation
 		float shift = epsilon;
 
-		while (shift >= epsilon)
-		{
-			//cout << "  iterating..." << endl;
+		while (shift >= epsilon) {
+			//printf("  iterating...\n");
 
 			// initialize the centroid to 0, it will accumulate points later
-			float centroid[dim];
-			for (int k = 0; k < dim; ++k) { centroid[k] = 0; }
+			float centroid[dimension];
+			for (int k = 0; k < dimension; ++k) { centroid[k] = 0; }
 
 			// track the number of points inside the bandwidth window
 			int windowPoints = 0;
 
-			for (int j = 0; j < n; ++j)
-			{
-				float point[dim];
-				for (int k = 0; k < dim; ++k)
-				{ point[k] = points[j * dim + k]; }
+			for (int j = 0; j < nOfPoints; ++j) {
+				float point[dimension];
+				for (int k = 0; k < dimension; ++k) { point[k] = points[j * dimension + k]; }
 
-				if (l2Distance(mean, point, dim) <= bandwidth)
-				{
+				if (l2Distance(mean, point, dimension) <= bandwidth) {
 					// accumulate the point position
-					for (int k = 0; k < dim; ++k) {
+					for (int k = 0; k < dimension; ++k) {
 						// todo: multiply by the chosen kernel
 						centroid[k] += point[k];
 					}
@@ -73,62 +62,78 @@ int matrixMeanShift(float* points, size_t n, size_t dim, int* clusters, float* m
 				}
 			}
 
-			//cout << "    " << windowPoints << " points examined" << endl;
+			//printf("    %d points examined\n", windowPoints);
 
 			// get the centroid dividing by the number of points taken into account
-			for (int k = 0; k < dim; ++k) { centroid[k] /= windowPoints; }
+			for (int k = 0; k < dimension; ++k) { centroid[k] /= windowPoints; }
 
-			shift = l2Distance(mean, centroid, dim);
+			shift = l2Distance(mean, centroid, dimension);
 
-			//cout << "    shift = " << shift << endl;
+			//printf("    shift = %f\n", shift);
 
 			// update the mean
-			for (int k = 0; k < dim; ++k)
-			{ mean[k] = centroid[k]; }
+			for (int k = 0; k < dimension; ++k) { mean[k] = centroid[k]; }
 		}
 
 		// mean now contains the mode of the point
+		for (int k = 0; k < dimension; ++k) { means[i * dimension + k] = mean[k]; };
+	}
 
-		/*cout << "    mean: [ ";
-		for (int k = 0; k < dim; ++k)
-		{ cout << mean[k] << " "; }
-		cout << "]" << endl;*/
+	//printf("Meanshift: second phase start\n");
 
-		//cout << "  finding a cluster..." << endl;
+	// label all points as "not clustered"
+	for (int k = 0; k < nOfPoints; ++k) { clusters[k] = -1; }
+
+	// counter for the number of discovered clusters
+	int clustersCount = 0;
+
+	for (int i = 0; i < nOfPoints; ++i) {
+		float mean[5];
+		for (int k = 0; k < dimension; ++k) { mean[k] = means[i * dimension + k]; }
+
+		/*printf("    Mean: [ ");
+		for (int k = 0; k < dimension; ++k)
+		{ printf("%f ", mean[k]); }
+		printf("]\n");*/
+
+		//printf("  Finding a cluster...\n");
 
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
 		{
-			// if the current mean is near to an existing mode
-			if (l2Distance(mean, &modes[j * dim], dim) < bandwidth)
-			{
-				//cout << "    cluster " << j << " similar" << endl;
+			// select the current mode
+			float mode[dimension];
+			for (int k = 0; k < dimension; ++k) { mode[k] = modes[j * dimension + k]; }
 
-				/*cout << "      cluster: [ ";
-				for (int k = 0; k < dim; ++k)
-				{ cout << modes[j * dim + k] << " "; }
-				cout << "]" << endl;*/
+			// if the mean is close enough to the current mode
+			if (l2Distance(mean, mode, dimension) < bandwidth)
+			{
+				//printf("    Cluster %d similar\n", j);
+
+				/*printf("    Cluster: [ ");
+				for (int k = 0; k < dimension; ++k)
+				{ printf("%f ", mode[k]); }
+				printf("]\n");*/
 
 				// assign the point i to the cluster j
 				clusters[i] = j;
 			}
 			++j;
 		}
-
 		// if the point i was not assigned to a cluster
 		if (clusters[i] == -1) {
-			//cout << "    no similar cluster, create a new one (" << clustersCount << ")" << endl;
+			//printf("    No similar clusters, creating a new one... (%d)", clustersCount);
 
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			for (int k = 0; k < dim; ++k)
-			{ modes[clustersCount * dim + k] = mean[k]; }
+			for (int k = 0; k < dimension; ++k) { modes[clustersCount * dimension + k] = mean[k]; }
 
 			clustersCount++;
 		}
 	}
 
+	//printf("Meanshift: end\n");
 	return clustersCount;
 }
 
