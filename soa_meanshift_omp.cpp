@@ -8,7 +8,7 @@
 #include <omp.h>
 
 // todo: uncomment this
-//#define dimension 5
+#define dimension 5
 
 /**
  * Cluster RGB points with the mean shift algorithm
@@ -26,7 +26,7 @@
 int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels &modes, int* clusters)
 {
 	// todo: comment this
-	int dimension = 5;
+	// int dimension = 5;
 
 	// sanity check
 	if (&points == &modes) {

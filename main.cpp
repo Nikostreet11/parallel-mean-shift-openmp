@@ -22,12 +22,12 @@
  * 	   Speedup: 		3.6
  *
  * 100x100 image, Linux, 8 cores, 12 threads
- * 	 Matrix sequential:
- * 	 Matrix OpenMP:
- * 	   Speedup:
- *   SoA sequential:
- * 	 SoA OpenMP:
- * 	   Speedup:
+ * 	 Matrix sequential: 2461ms
+ * 	 Matrix OpenMP: 998ms
+ * 	   Speedup: 2.5
+ *   SoA sequential: 2711ms
+ * 	 SoA OpenMP: 726ms
+ * 	   Speedup: 3.7
  *
  * Averaged on 10 iterations
  * --------------------------------------------
