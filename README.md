@@ -1,2 +1,2 @@
-# Parallel-Mean-Shift
+# Parallel-Mean-Shift-OpenMP
 Parallel Computing Exam Project
