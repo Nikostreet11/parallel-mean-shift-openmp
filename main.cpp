@@ -1,4 +1,4 @@
-#include "include/ppm_io.h"
+#include "include/ppm_io.cpp"
 #include "matrix_meanshift.cpp"
 #include "matrix_meanshift_omp.cpp"
 #include "soa_meanshift.cpp"
