@@ -69,7 +69,7 @@ struct RgbPixels {
 	}
 
 	void print(int i) {
-		cout << "[ " << r[i] << " " << g[i] << " " << b[i] << " " << x[i] << " " << y[i] << " ]";
+		std::cout << "[ " << r[i] << " " << g[i] << " " << b[i] << " " << x[i] << " " << y[i] << " ]";
 	}
 };
 

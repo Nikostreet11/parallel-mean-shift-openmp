@@ -7,10 +7,12 @@
 #include <iostream>
 #include <chrono>
 
-#define INPUT_PATH "../img/image_bigger.ppm"
-#define OUTPUT_PATH "../img/image_bigger_out.ppm"
+#define INPUT_PATH "../img/balloons_100.ppm"
+#define OUTPUT_PATH "../img/out.ppm"
 #define ITERATIONS 1
 #define BANDWIDTH 0.4
+
+#include <omp.h>
 
 /* ----- TIMINGS ------------------------------
  * 100x100 image, Windows, 12 cores, 18 threads
@@ -38,8 +40,7 @@
 // todo: kernel multiplication
 // todo: parallelize using Cuda
 
-using namespace std;
-using namespace chrono;
+using namespace std::chrono;
 
 int main()
 {
@@ -47,7 +48,7 @@ int main()
 	PPM ppm;
 	if (ppm.read(INPUT_PATH) != 0)
 	{
-		cout << "ERROR: failed to open the image";
+		std::cout << "ERROR: failed to open the image";
 		return -1;
 	}
 	int width = ppm.getW();
@@ -61,8 +62,8 @@ int main()
 	int rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
 	int rgbxySpaceSize = RgbPixels::SPACE_DIMENSION;
 	int rgbMaxValue = RgbPixels::MAX_VALUE;
-    float pixels[nOfPixels * rgbxySpaceSize];
-	float modes[nOfPixels * rgbxySpaceSize];
+    auto pixels = new float[nOfPixels * rgbxySpaceSize];
+	auto modes = new float[nOfPixels * rgbxySpaceSize];
 
 	// initialize the pixel data
     for (int i = 0; i < nOfPixels; ++i)
@@ -75,7 +76,7 @@ int main()
     }
 
 	// create the index array
-	int clusters[nOfPixels];
+	auto clusters = new int[nOfPixels];
 
 	// create the result variables
 	int nOfClusters;
@@ -89,10 +90,10 @@ int main()
 
 		// time the function
 		auto start_time = high_resolution_clock::now();
-		nOfClusters = matrixMeanShiftOmp(pixels, nOfPixels, BANDWIDTH, rgbxySpaceSize, modes, clusters);
+		nOfClusters = matrixMeanShiftOmp(pixels, nOfPixels, BANDWIDTH, modes, clusters);
 		auto end_time = high_resolution_clock::now();
 
-		totalTime += duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
+		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
 	}
 
 	float averageTime = totalTime / ITERATIONS;
@@ -111,6 +112,9 @@ int main()
 		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 2] * rgbMaxValue); // B
 	}*/
 
+	delete[] pixels;
+	delete[] modes;
+
   	// MATRIX MEANSHIFT END //
 
 	printf("\n");
@@ -118,8 +122,8 @@ int main()
 	// SOA MEANSHIFT START //
 
     // create the structures of arrays
-    RgbPixels soaPixels;
-	RgbPixels soaModes;
+    RgbPixels soaPixels{};
+	RgbPixels soaModes{};
 	soaPixels.create(width, height);
 	soaModes.create(width, height);
 
@@ -144,7 +148,7 @@ int main()
 		nOfClusters = soaMeanShiftOmp(soaPixels, nOfPixels, BANDWIDTH, soaModes, clusters);
 		auto end_time = high_resolution_clock::now();
 
-		totalTime += duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
+		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
 	}
 
 	averageTime = totalTime / ITERATIONS;
@@ -158,7 +162,7 @@ int main()
 	// create the output image buffer
 	rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
 	rgbMaxValue = RgbPixels::MAX_VALUE;
-    uint8_t outputBuffer[nOfPixels * rgbPixelSize];
+    auto outputBuffer = new uint8_t[nOfPixels * rgbPixelSize];
     for(int i = 0; i < nOfPixels; ++i)
     {
 		outputBuffer[i * rgbPixelSize]     = (uint8_t) (soaModes.r[clusters[i]] * rgbMaxValue); // R
@@ -169,6 +173,7 @@ int main()
 	// free the memory
 	soaPixels.destroy();
 	soaModes.destroy();
+	delete[] clusters;
 
 	// SOA MEANSHIFT END //
 
@@ -177,9 +182,11 @@ int main()
 	// write the output ppm image
 	if (ppm.write(OUTPUT_PATH) != 0)
 	{
-		cout << "ERROR: failed to write the image";
+		std::cout << "ERROR: failed to write the image";
 		return -1;
 	}
+
+	delete[] outputBuffer;
 
 	return 0;
 }

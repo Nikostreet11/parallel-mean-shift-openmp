@@ -1,10 +1,10 @@
 #ifndef MATRIX_MEANSHIFT_CPP
 #define MATRIX_MEANSHIFT_CPP
 
+#define CHANNELS 5
+
 #include <iostream>
 #include "distance.cpp"
-
-using namespace std;
 
 /**
  * Cluster RGB RgbPixels with the mean shift algorithm
@@ -19,69 +19,63 @@ using namespace std;
  * @todo
  * @return the array of cluster indices
  */
-int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, size_t dimension, float* modes, int* clusters)
+int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, float* modes, int* clusters)
 {
-	float squaredBandwidth = (float) pow(bandwidth, 2);
+	auto squaredBandwidth = (float) pow(bandwidth, 2);
 
 	// stop value to check for the shift convergence
-	float epsilon = (float) pow(bandwidth * 0.05, 2);
+	auto epsilon = (float) pow(bandwidth * 0.05, 2);
 
 	// matrix to save the final mean of each pixel
-	float means[nOfPoints * dimension];
+	auto means = new float[nOfPoints * CHANNELS];
 
 	// compute the means
-	for (int i = 0; i < nOfPoints; ++i) {
-		//printf("  Examining point %d\n", i);
-
+	for (int i = 0; i < nOfPoints; ++i)
+	{
 		// initialize the mean on the current point
-		float mean[dimension];
-		for (int k = 0; k < dimension; ++k) { mean[k] = points[i * dimension + k]; }
+		float mean[CHANNELS];
+		for (int k = 0; k < CHANNELS; ++k) { mean[k] = points[i * CHANNELS + k]; }
 
 		// assignment to ensure the first computation
 		float shift = epsilon;
 
-		while (shift >= epsilon) {
-			//printf("  iterating...\n");
-
+		while (shift >= epsilon)
+		{
 			// initialize the centroid to 0, it will accumulate points later
-			float centroid[dimension];
-			for (int k = 0; k < dimension; ++k) { centroid[k] = 0; }
+			float centroid[CHANNELS];
+			for (float& k : centroid) { k = 0; }
 
 			// track the number of points inside the bandwidth window
 			int windowPoints = 0;
 
-			for (int j = 0; j < nOfPoints; ++j) {
-				float point[dimension];
-				for (int k = 0; k < dimension; ++k) { point[k] = points[j * dimension + k]; }
+			for (int j = 0; j < nOfPoints; ++j)
+			{
+				float point[CHANNELS];
+				for (int k = 0; k < CHANNELS; ++k) { point[k] = points[j * CHANNELS + k]; }
 
-				if (l2SquaredDistance(mean, point, dimension) <= squaredBandwidth) {
+				if (l2SquaredDistance(mean, point, CHANNELS) <= squaredBandwidth)
+				{
 					// accumulate the point position
-					for (int k = 0; k < dimension; ++k) {
-						// todo: multiply by the chosen kernel
+					for (int k = 0; k < CHANNELS; ++k)
+					{
 						centroid[k] += point[k];
 					}
 					++windowPoints;
 				}
 			}
 
-			//printf("    %d points examined\n", windowPoints);
-
 			// get the centroid dividing by the number of points taken into account
-			for (int k = 0; k < dimension; ++k) { centroid[k] /= windowPoints; }
+			for (float& k : centroid) { k /= (float) windowPoints; }
 
-			shift = l2SquaredDistance(mean, centroid, dimension);
-
-			//printf("    shift = %f\n", shift);
+			shift = l2SquaredDistance(mean, centroid, CHANNELS);
 
 			// update the mean
-			for (int k = 0; k < dimension; ++k) { mean[k] = centroid[k]; }
+			for (int k = 0; k < CHANNELS; ++k) { mean[k] = centroid[k]; }
 		}
 
 		// mean now contains the mode of the point
-		for (int k = 0; k < dimension; ++k) { means[i * dimension + k] = mean[k]; };
+		for (int k = 0; k < CHANNELS; ++k) { means[i * CHANNELS + k] = mean[k]; };
 	}
-
-	//printf("Meanshift: second phase start\n");
 
 	// label all points as "not clustered"
 	for (int k = 0; k < nOfPoints; ++k) { clusters[k] = -1; }
@@ -89,34 +83,21 @@ int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, size_t dim
 	// counter for the number of discovered clusters
 	int clustersCount = 0;
 
-	for (int i = 0; i < nOfPoints; ++i) {
-		float mean[5];
-		for (int k = 0; k < dimension; ++k) { mean[k] = means[i * dimension + k]; }
-
-		/*printf("    Mean: [ ");
-		for (int k = 0; k < dimension; ++k)
-		{ printf("%f ", mean[k]); }
-		printf("]\n");*/
-
-		//printf("  Finding a cluster...\n");
+	for (int i = 0; i < nOfPoints; ++i)
+	{
+		float mean[CHANNELS];
+		for (int k = 0; k < CHANNELS; ++k) { mean[k] = means[i * CHANNELS + k]; }
 
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
 		{
 			// select the current mode
-			float mode[dimension];
-			for (int k = 0; k < dimension; ++k) { mode[k] = modes[j * dimension + k]; }
+			float mode[CHANNELS];
+			for (int k = 0; k < CHANNELS; ++k) { mode[k] = modes[j * CHANNELS + k]; }
 
 			// if the mean is close enough to the current mode
-			if (l2SquaredDistance(mean, mode, dimension) < squaredBandwidth)
+			if (l2SquaredDistance(mean, mode, CHANNELS) < squaredBandwidth)
 			{
-				//printf("    Cluster %d similar\n", j);
-
-				/*printf("    Cluster: [ ");
-				for (int k = 0; k < dimension; ++k)
-				{ printf("%f ", mode[k]); }
-				printf("]\n");*/
-
 				// assign the point i to the cluster j
 				clusters[i] = j;
 			}
@@ -124,18 +105,17 @@ int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, size_t dim
 		}
 		// if the point i was not assigned to a cluster
 		if (clusters[i] == -1) {
-			//printf("    No similar clusters, creating a new one... (%d)", clustersCount);
-
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			for (int k = 0; k < dimension; ++k) { modes[clustersCount * dimension + k] = mean[k]; }
+			for (int k = 0; k < CHANNELS; ++k) { modes[clustersCount * CHANNELS + k] = mean[k]; }
 
 			clustersCount++;
 		}
 	}
 
-	//printf("Meanshift: end\n");
+	delete[] means;
+
 	return clustersCount;
 }
 
