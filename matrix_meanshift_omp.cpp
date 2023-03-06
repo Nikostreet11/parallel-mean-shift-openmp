@@ -21,14 +21,16 @@ using namespace std;
  */
 int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, size_t dimension, float* modes, int* clusters)
 {
+	float squaredBandwidth = (float) pow(bandwidth, 2);
+
 	// stop value to check for the shift convergence
-	float epsilon = bandwidth * 0.05;
+	float epsilon = (float) pow(bandwidth * 0.05, 2);
 
 	// matrix to save the final mean of each pixel
 	float means[nOfPoints * dimension];
 
 	// compute the means
-#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, bandwidth, nOfPoints, dimension)
+#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, squaredBandwidth, nOfPoints, dimension)
 	{
 #pragma omp for
 		for (int i = 0; i < nOfPoints; ++i) {
@@ -55,7 +57,7 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, size_t 
 					float point[dimension];
 					for (int k = 0; k < dimension; ++k) { point[k] = points[j * dimension + k]; }
 
-					if (l2Distance(mean, point, dimension) <= bandwidth) {
+					if (l2SquaredDistance(mean, point, dimension) <= squaredBandwidth) {
 						// accumulate the point position
 						for (int k = 0; k < dimension; ++k) {
 							// todo: multiply by the chosen kernel
@@ -70,7 +72,7 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, size_t 
 				// get the centroid dividing by the number of points taken into account
 				for (int k = 0; k < dimension; ++k) { centroid[k] /= windowPoints; }
 
-				shift = l2Distance(mean, centroid, dimension);
+				shift = l2SquaredDistance(mean, centroid, dimension);
 
 				//printf("    shift = %f\n", shift);
 
@@ -110,7 +112,7 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, size_t 
 			for (int k = 0; k < dimension; ++k) { mode[k] = modes[j * dimension + k]; }
 
 			// if the mean is close enough to the current mode
-			if (l2Distance(mean, mode, dimension) < bandwidth)
+			if (l2SquaredDistance(mean, mode, dimension) < squaredBandwidth)
 			{
 				//printf("    Cluster %d similar\n", j);
 

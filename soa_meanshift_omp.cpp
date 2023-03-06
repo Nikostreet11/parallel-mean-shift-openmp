@@ -25,17 +25,16 @@
  */
 int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels &modes, int* clusters)
 {
-	// todo: comment this
-	// int dimension = 5;
-
 	// sanity check
 	if (&points == &modes) {
 		printf("Error - Pixel and modes can't be the same structure!");
 		return -1;
 	}
 
+	float squaredBandwidth = (float) pow(bandwidth, 2);
+
 	// stop value to check for the shift convergence
-	float epsilon = bandwidth * 0.05;
+	float epsilon = (float) pow(bandwidth * 0.05, 2);
 
 	// structure of array to save the final mean of each pixel
 	RgbPixels means;
@@ -44,7 +43,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 	//printf("Meanshift: first phase start\nOfPoints");
 
 	// compute the means
-#pragma omp parallel /*default(none)*/ shared(points, means, modes) firstprivate(epsilon, bandwidth, nOfPoints)//, dimension)
+#pragma omp parallel /*default(none)*/ shared(points, means, modes) firstprivate(epsilon, squaredBandwidth, nOfPoints)//, dimension)
 	{
 #pragma omp for
 		for (int i = 0; i < nOfPoints; ++i) {
@@ -71,7 +70,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 					float point[dimension];
 					points.write(j, point);
 
-					if (l2Distance(mean, point, dimension) <= bandwidth) {
+					if (l2SquaredDistance(mean, point, dimension) <= squaredBandwidth) {
 						// accumulate the point position
 						for (int k = 0; k < dimension; ++k) {
 							// todo: multiply by the chosen kernel
@@ -86,7 +85,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 				// get the centroid dividing by the number of points taken into account
 				for (int k = 0; k < dimension; ++k) { centroid[k] /= windowPoints; }
 
-				shift = l2Distance(mean, centroid, dimension);
+				shift = l2SquaredDistance(mean, centroid, dimension);
 
 				//printf("    shift = %f\n", shift);
 
@@ -126,7 +125,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 			modes.write(j, mode);
 
 			// if the mean is close enough to the current mode
-			if(l2Distance(mean, mode, dimension) < bandwidth)
+			if(l2SquaredDistance(mean, mode, dimension) < squaredBandwidth)
 			{
 				//printf("    Cluster %d similar\n", j);
 

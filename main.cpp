@@ -9,7 +9,7 @@
 
 #define INPUT_PATH "../img/image_bigger.ppm"
 #define OUTPUT_PATH "../img/image_bigger_out.ppm"
-#define ITERATIONS 10
+#define ITERATIONS 1
 #define BANDWIDTH 0.4
 
 /* ----- TIMINGS ------------------------------

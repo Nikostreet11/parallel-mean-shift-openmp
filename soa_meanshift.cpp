@@ -28,8 +28,10 @@ int soaMeanShift(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels
 		return -1;
 	}
 
+	float squaredBandwidth = (float) pow(bandwidth, 2);
+
 	// stop value to check for the shift convergence
-	float epsilon = bandwidth * 0.05;
+	float epsilon = (float) pow(bandwidth * 0.05, 2);
 
 	// structure of array to save the final mean of each pixel
 	RgbPixels means;
@@ -62,7 +64,7 @@ int soaMeanShift(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels
 				float point[dimension];
 				points.write(j, point);
 
-				if (l2Distance(mean, point, dimension) <= bandwidth) {
+				if (l2SquaredDistance(mean, point, dimension) <= squaredBandwidth) {
 					// accumulate the point position
 					for (int k = 0; k < dimension; ++k) {
 						// todo: multiply by the chosen kernel
@@ -77,7 +79,7 @@ int soaMeanShift(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels
 			// get the centroid dividing by the number of points taken into account
 			for (int k = 0; k < dimension; ++k) { centroid[k] /= windowPoints; }
 
-			shift = l2Distance(mean, centroid, dimension);
+			shift = l2SquaredDistance(mean, centroid, dimension);
 
 			//printf("    shift = %f\n", shift);
 
@@ -116,7 +118,7 @@ int soaMeanShift(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels
 			modes.write(j, mode);
 
 			// if the mean is close enough to the current mode
-			if(l2Distance(mean, mode, dimension) < bandwidth)
+			if(l2SquaredDistance(mean, mode, dimension) < squaredBandwidth)
 			{
 				//printf("    Cluster %d similar\n", j);
 

@@ -4,12 +4,20 @@
 #include <cmath>
 
 // Euclidean distance function
-float l2Distance(float* row1, float* row2, size_t size) {
+/*float l2Distance(float* row1, float* row2, size_t size) {
 	float distance = 0;
 	for (int i = 0; i < size; ++i) {
 		distance += std::pow(row1[i] - row2[i], 2);
 	}
 	return sqrt(distance);
+}*/
+
+float l2SquaredDistance(float* row1, float* row2, size_t size) {
+	float distance = 0;
+	for (int i = 0; i < size; ++i) {
+		distance += std::pow(row1[i] - row2[i], 2);
+	}
+	return distance;
 }
 
 #endif // DISTANCE_CPP
