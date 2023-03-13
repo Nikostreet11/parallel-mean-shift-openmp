@@ -14,7 +14,6 @@ struct RgbPixels {
 	float* b;
 	float* x;
 	float* y;
-	// todo: padding to better fit the cache
 
 	void create(int _width, int _height) {
 		width = _width;

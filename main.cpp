@@ -7,38 +7,15 @@
 #include <iostream>
 #include <chrono>
 
-#define INPUT_PATH "../img/balloons_100.ppm"
+#define INPUT_PATH "../img/balloons_250.ppm"
 #define OUTPUT_PATH "../img/out.ppm"
-#define ITERATIONS 1
+#define ITERATIONS 10
 #define BANDWIDTH 0.4
 
 #include <omp.h>
 
-/* ----- TIMINGS ------------------------------
- * 100x100 image, Windows, 12 cores, 18 threads
- * 	 Matrix sequential: 3609ms
- * 	 Matrix OpenMP:		1029ms
- * 	   Speedup: 		3.5
- *   SoA sequential:	3834ms
- * 	 SoA OpenMP:		1060ms
- * 	   Speedup: 		3.6
- *
- * 100x100 image, Linux, 8 cores, 12 threads
- * 	 Matrix sequential: 2461ms
- * 	 Matrix OpenMP: 998ms
- * 	   Speedup: 2.5
- *   SoA sequential: 2711ms
- * 	 SoA OpenMP: 726ms
- * 	   Speedup: 3.7
- *
- * Averaged on 10 iterations
- * --------------------------------------------
- */
 
-// todo: cluster in the HSV space
-// todo: cluster in the L*U*V* space
-// todo: kernel multiplication
-// todo: parallelize using Cuda
+// TODO: kernel multiplication
 
 using namespace std::chrono;
 

@@ -6,19 +6,6 @@
 #include <iostream>
 #include "distance.cpp"
 
-/**
- * Cluster RGB RgbPixels with the mean shift algorithm
- *
- * The mean shift algorithm is used in a 5-dimensional space (r, g, b, x, y) to cluster the
- * RgbPixels of an image.
- *
- * @param points the structure of arrays containing the pixel values
- * @param modes the resulting modes to compute
- * @param bandwidth the radius of window size to compute the mean shift
- *
- * @todo
- * @return the array of cluster indices
- */
 int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, float* modes, int* clusters)
 {
 	auto squaredBandwidth = (float) pow(bandwidth, 2);
