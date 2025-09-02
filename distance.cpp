@@ -3,21 +3,26 @@
 
 #include <cmath>
 
-// Euclidean distance function
-/*float l2Distance(float* row1, float* row2, size_t size) {
-	float distance = 0;
-	for (int i = 0; i < size; ++i) {
-		distance += std::pow(row1[i] - row2[i], 2);
-	}
-	return sqrt(distance);
-}*/
+// Euclidean distance
+float l2Distance(float* row1, float* row2, size_t size) {
+    double distance = 0;
+    for (size_t i = 0; i < size; ++i) {
+        float diff = row1[i] - row2[i];
+        // accumulate in a double to account for error
+        distance += static_cast<double>(diff) * diff;
+    }
+	return static_cast<float>(sqrt(distance));
+}
 
-float l2SquaredDistance(float* row1, float* row2, size_t size) {
-	float distance = 0;
-	for (int i = 0; i < size; ++i) {
-		distance += std::pow(row1[i] - row2[i], 2);
+// Euclidean squared distance - faster
+float l2SquaredDistance(const float* row1, const float* row2, size_t size) {
+	double distance = 0;
+	for (size_t i = 0; i < size; ++i) {
+        float diff = row1[i] - row2[i];
+        // accumulate in a double to account for error
+		distance += static_cast<double>(diff) * diff;
 	}
-	return distance;
+	return static_cast<float>(distance);
 }
 
 #endif // DISTANCE_CPP
