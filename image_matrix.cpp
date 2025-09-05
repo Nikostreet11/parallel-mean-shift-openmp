@@ -1,0 +1,64 @@
+#include "image_matrix.h"
+
+ImageMatrix::ImageMatrix(int w, int h, int c) :
+	width(w),
+	height(h),
+	channels(c),
+	dimension(c + 2),
+	pixels(std::make_unique<float[]>(w * h * (dimension)))
+{
+	for (int i = 0; i < width * height * channels; ++i)
+		pixels[i] = 0.0f;
+}
+
+void ImageMatrix::load(const uint8_t *buffer) const
+{
+	// normalize dividing by max-1 to map the result in the range [0,1] inclusive
+	float xScale = (width  > 1) ? 1.0f / static_cast<float>(width  - 1) : 0.0f;
+	float yScale = (height > 1) ? 1.0f / static_cast<float>(height - 1) : 0.0f;
+
+	for (int i = 0; i < width * height; ++i)
+	{
+		// load color channels
+		for (int j = 0; j < channels; ++j)
+		{
+			int pixels_idx = i * dimension + j;
+			int buffer_idx = i * channels + j;
+			pixels[pixels_idx] = static_cast<float>(buffer[buffer_idx]) / MAX_VALUE;
+		}
+		// load coordinates
+		int row = i / width;
+		int col = i % width;
+		pixels[i * dimension + channels]     = static_cast<float>(col) * xScale;
+		pixels[i * dimension + channels + 1] = static_cast<float>(row) * yScale;
+	}
+}
+
+float *ImageMatrix::getPixels() // NOLINT
+{
+	return pixels.get();
+}
+
+const float *ImageMatrix::getPixels() const
+{
+	return pixels.get();
+}
+
+int ImageMatrix::getWidth() const
+{
+	return width;
+}
+
+int ImageMatrix::getHeight() const
+{
+	return height;
+}
+
+int ImageMatrix::getChannels() const
+{
+	return channels;
+}
+
+int ImageMatrix::getDimension() const {
+	return dimension;
+}

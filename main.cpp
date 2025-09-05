@@ -4,16 +4,17 @@
 #include "soa_meanshift.cpp"
 #include "soa_meanshift_omp.cpp"
 #include "rgb_pixels.cpp"
+#include "image_matrix.h"
 #include <iostream>
 #include <chrono>
 
-#define INPUT_PATH "../img/balloons_250.ppm"
+#define INPUT_PATH "../img/balloons_50.ppm"
 #define OUTPUT_PATH "../img/out.ppm"
 #define ITERATIONS 10
 #define BANDWIDTH 0.4
+#define RGB_CHANNELS 3
 
 #include <omp.h>
-
 
 // TODO: kernel multiplication
 
@@ -39,18 +40,11 @@ int main()
 	int rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
 	int rgbxySpaceSize = RgbPixels::SPACE_DIMENSION;
 	int rgbMaxValue = RgbPixels::MAX_VALUE;
-    auto pixels = new float[nOfPixels * rgbxySpaceSize];
+	auto *matrix = new ImageMatrix(width, height, RGB_CHANNELS);
 	auto modes = new float[nOfPixels * rgbxySpaceSize];
 
 	// initialize the pixel data
-    for (int i = 0; i < nOfPixels; ++i)
-	{
-		pixels[i * rgbxySpaceSize]     = (float) inputBuffer[i * rgbPixelSize]     / rgbMaxValue; // R
-        pixels[i * rgbxySpaceSize + 1] = (float) inputBuffer[i * rgbPixelSize + 1] / rgbMaxValue; // G
-        pixels[i * rgbxySpaceSize + 2] = (float) inputBuffer[i * rgbPixelSize + 2] / rgbMaxValue; // B
-        pixels[i * rgbxySpaceSize + 3] = (float) ((i) % width) / (width - 1);					  // X
-        pixels[i * rgbxySpaceSize + 4] = (float) ((i) / width) / (height - 1);					  // Y
-    }
+	matrix->load(inputBuffer);
 
 	// create the index array
 	auto clusters = new int[nOfPixels];
@@ -67,7 +61,7 @@ int main()
 
 		// time the function
 		auto start_time = high_resolution_clock::now();
-		nOfClusters = matrixMeanShiftOmp(pixels, nOfPixels, BANDWIDTH, modes, clusters);
+		nOfClusters = matrixMeanShiftOmp(matrix->getPixels(), nOfPixels, BANDWIDTH, modes, clusters);
 		auto end_time = high_resolution_clock::now();
 
 		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
@@ -89,7 +83,6 @@ int main()
 		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 2] * rgbMaxValue); // B
 	}*/
 
-	delete[] pixels;
 	delete[] modes;
 
   	// MATRIX MEANSHIFT END //

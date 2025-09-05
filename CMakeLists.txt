@@ -6,7 +6,10 @@ add_subdirectory(include)
 
 find_package(OpenMP REQUIRED)
 
-add_executable(Parallel_Mean_Shift_OpenMP main.cpp)
+add_executable(Parallel_Mean_Shift_OpenMP
+        main.cpp
+        image_matrix.cpp
+        image_matrix.h)
 
 target_link_libraries(Parallel_Mean_Shift_OpenMP ppm_io OpenMP::OpenMP_CXX)
 
