@@ -13,6 +13,8 @@
 #define ITERATIONS 10
 #define BANDWIDTH 0.4
 #define RGB_CHANNELS 3
+#define MAX_VALUE 255
+#define TOTAL_CHANNELS (RGB_CHANNELS + 2)
 
 #include <omp.h>
 
@@ -22,32 +24,28 @@ using namespace std::chrono;
 
 int main()
 {
-	// open the ppm image
-	PPM ppm;
-	if (ppm.read(INPUT_PATH) != 0)
+	PPM image;
+	if (image.read(INPUT_PATH) != 0)
 	{
-		std::cout << "ERROR: failed to open the image";
 		return -1;
 	}
-	int width = ppm.getW();
-	int height = ppm.getH();
-	int nOfPixels = width * height;
-	uint8_t* inputBuffer = ppm.getImageHandler();
+	int totalPixels = image.getW() * image.getH();
+	uint8_t* inputBuffer = image.getImageHandler();
 
 	// MATRIX MEANSHIFT START //
 
 	// create the matrices
 	int rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
 	int rgbxySpaceSize = RgbPixels::SPACE_DIMENSION;
-	int rgbMaxValue = RgbPixels::MAX_VALUE;
-	auto *matrix = new ImageMatrix(width, height, RGB_CHANNELS);
-	auto modes = new float[nOfPixels * rgbxySpaceSize];
+	int rgbMaxValue = MAX_VALUE;
+	auto matrix = std::make_unique<ImageMatrix>(image.getW(), image.getH());
+	auto modes = new float[totalPixels * rgbxySpaceSize];
 
 	// initialize the pixel data
 	matrix->load(inputBuffer);
 
 	// create the index array
-	auto clusters = new int[nOfPixels];
+	auto clusters = new int[totalPixels];
 
 	// create the result variables
 	int nOfClusters;
@@ -61,7 +59,7 @@ int main()
 
 		// time the function
 		auto start_time = high_resolution_clock::now();
-		nOfClusters = matrixMeanShiftOmp(matrix->getPixels(), nOfPixels, BANDWIDTH, modes, clusters);
+		nOfClusters = matrixMeanShiftOmp(matrix->getPixels(), totalPixels, BANDWIDTH, modes, clusters);
 		auto end_time = high_resolution_clock::now();
 
 		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
@@ -75,8 +73,8 @@ int main()
 	printf("  average: %fms\n", averageTime);
 	printf("Number of clusters: %d\n", nOfClusters);
 
-    /*uint8_t outputBuffer[nOfPixels * rgbPixelSize];
-    for (int i = 0; i < nOfPixels; ++i)
+    /*uint8_t outputBuffer[totalPixels * rgbPixelSize];
+    for (int i = 0; i < totalPixels; ++i)
 	{
 		outputBuffer[i * rgbPixelSize]	   = (uint8_t) (modes[clusters[i] * rgbxySpaceSize]     * rgbMaxValue); // R
 		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 1] * rgbMaxValue); // G
@@ -94,14 +92,14 @@ int main()
     // create the structures of arrays
     RgbPixels soaPixels{};
 	RgbPixels soaModes{};
-	soaPixels.create(width, height);
-	soaModes.create(width, height);
+	soaPixels.create(image.getW(), image.getH());
+	soaModes.create(image.getW(), image.getH());
 
 	// initialize the pixel data
 	soaPixels.load(inputBuffer);
 
 	// create the index array
-    //int clusters[nOfPixels];
+    //int clusters[totalPixels];
 
 	// create the result variables
 	//int nOfClusters;
@@ -115,7 +113,7 @@ int main()
 
 		// time the function
 		auto start_time = high_resolution_clock::now();
-		nOfClusters = soaMeanShiftOmp(soaPixels, nOfPixels, BANDWIDTH, soaModes, clusters);
+		nOfClusters = soaMeanShiftOmp(soaPixels, totalPixels, BANDWIDTH, soaModes, clusters);
 		auto end_time = high_resolution_clock::now();
 
 		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
@@ -131,9 +129,9 @@ int main()
 
 	// create the output image buffer
 	rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
-	rgbMaxValue = RgbPixels::MAX_VALUE;
-    auto outputBuffer = new uint8_t[nOfPixels * rgbPixelSize];
-    for(int i = 0; i < nOfPixels; ++i)
+	rgbMaxValue = MAX_VALUE;
+    auto outputBuffer = new uint8_t[totalPixels * rgbPixelSize];
+    for(int i = 0; i < totalPixels; ++i)
     {
 		outputBuffer[i * rgbPixelSize]     = (uint8_t) (soaModes.r[clusters[i]] * rgbMaxValue); // R
 		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (soaModes.g[clusters[i]] * rgbMaxValue); // G
@@ -147,10 +145,10 @@ int main()
 
 	// SOA MEANSHIFT END //
 
-	ppm.load(outputBuffer, height, width, ppm.getMax(), ppm.getMagic());
+	image.load(outputBuffer, image.getH(), image.getW(), image.getMax(), image.getMagic());
 
-	// write the output ppm image
-	if (ppm.write(OUTPUT_PATH) != 0)
+	// write the output image
+	if (image.write(OUTPUT_PATH) != 0)
 	{
 		std::cout << "ERROR: failed to write the image";
 		return -1;

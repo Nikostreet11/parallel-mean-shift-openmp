@@ -1,10 +1,11 @@
 #include "image_matrix.h"
 
-ImageMatrix::ImageMatrix(int w, int h, int c) :
+ImageMatrix::ImageMatrix(int w, int h, int c, int max) :
 	width(w),
 	height(h),
 	channels(c),
 	dimension(c + 2),
+	maxValue(max),
 	pixels(std::make_unique<float[]>(w * h * (dimension)))
 {
 	for (int i = 0; i < width * height * channels; ++i)
@@ -24,7 +25,7 @@ void ImageMatrix::load(const uint8_t *buffer) const
 		{
 			int pixels_idx = i * dimension + j;
 			int buffer_idx = i * channels + j;
-			pixels[pixels_idx] = static_cast<float>(buffer[buffer_idx]) / MAX_VALUE;
+			pixels[pixels_idx] = static_cast<float>(buffer[buffer_idx]) / maxValue;
 		}
 		// load coordinates
 		int row = i / width;
@@ -61,4 +62,9 @@ int ImageMatrix::getChannels() const
 
 int ImageMatrix::getDimension() const {
 	return dimension;
+}
+
+int ImageMatrix::getMaxValue() const
+{
+	return getMaxValue();
 }
