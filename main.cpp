@@ -30,10 +30,8 @@ int main()
 	// MATRIX MEANSHIFT START //
 
 	// create the matrices
-	int rgbxySpaceSize = RgbPixels::SPACE_DIMENSION;
-
 	auto matrix = std::make_shared<ImageMatrix>(image.getW(), image.getH());
-	auto modes = new float[totalPixels * rgbxySpaceSize];
+	auto modes = new float[totalPixels * RGB_CHANNELS + 2];
 
 	// initialize the pixel data
 	matrix->load(inputBuffer);

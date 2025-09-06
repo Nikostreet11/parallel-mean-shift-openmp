@@ -3,7 +3,6 @@
 
 #define CHANNELS 5
 
-#include "rgb_pixels.cpp"
 #include "distance.cpp"
 #include "image_soa.h"
 #include "alias.h"
