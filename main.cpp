@@ -1,22 +1,16 @@
-#include "include/ppm_io.cpp"
-#include "matrix_meanshift.cpp"
-#include "matrix_meanshift_omp.cpp"
-#include "soa_meanshift.cpp"
-#include "soa_meanshift_omp.cpp"
-#include "rgb_pixels.cpp"
+#include "options.h"
+
 #include "image_matrix.h"
 #include "image_soa.h"
+//#include "matrix_meanshift.cpp"
+#include "matrix_meanshift_omp.cpp"
+//#include "soa_meanshift.cpp"
+#include "soa_meanshift_omp.cpp"
+
+#include "include/ppm_io.cpp"
+
 #include <iostream>
 #include <chrono>
-
-#define INPUT_PATH "../img/balloons_50.ppm"
-#define OUTPUT_PATH "../img/out.ppm"
-#define ITERATIONS 10
-#define BANDWIDTH 0.4
-#define RGB_CHANNELS 3
-#define MAX_VALUE 255
-#define TOTAL_CHANNELS (RGB_CHANNELS + 2)
-
 #include <omp.h>
 
 using namespace std::chrono;
@@ -36,9 +30,8 @@ int main()
 	// MATRIX MEANSHIFT START //
 
 	// create the matrices
-	int rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
 	int rgbxySpaceSize = RgbPixels::SPACE_DIMENSION;
-	int rgbMaxValue = MAX_VALUE;
+
 	auto matrix = std::make_shared<ImageMatrix>(image.getW(), image.getH());
 	auto modes = new float[totalPixels * rgbxySpaceSize];
 

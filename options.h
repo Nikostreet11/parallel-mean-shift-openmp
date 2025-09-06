@@ -1,0 +1,12 @@
+#ifndef PARALLEL_MEAN_SHIFT_OPENMP_OPTIONS_H
+#define PARALLEL_MEAN_SHIFT_OPENMP_OPTIONS_H
+
+#define INPUT_PATH  "../img/balloons_50.ppm"
+#define OUTPUT_PATH "../img/output.ppm"
+
+#define ITERATIONS    10
+#define BANDWIDTH     0.4
+#define RGB_CHANNELS  3
+#define RGB_MAX_VALUE 255
+
+#endif //PARALLEL_MEAN_SHIFT_OPENMP_OPTIONS_H
