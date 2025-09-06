@@ -13,19 +13,18 @@ private:
 	const int channels;
 	const int dimension;
 	const int maxValue;
+	std::unique_ptr<float[]> matrix;
 
 public:
+	ImageMatrix(int w, int h, int c = 3, int max = 255);
+	void load(const uint8_t* buffer) const;
+
 	int getWidth() const;
 	int getHeight() const;
 	int getChannels() const;
 	int getDimension() const;
 	int getMaxValue() const;
-	std::unique_ptr<float[]> pixels;
-public:
 
-public:
-	ImageMatrix(int w, int h, int c = 3, int max = 255);
-	void load(const uint8_t* buffer) const;
 	//void print(int i);
 
 	float* getPixels();

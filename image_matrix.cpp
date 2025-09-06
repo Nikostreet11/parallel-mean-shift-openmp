@@ -1,15 +1,15 @@
 #include "image_matrix.h"
 
 ImageMatrix::ImageMatrix(int w, int h, int c, int max) :
-	width(w),
-	height(h),
-	channels(c),
-	dimension(c + 2),
-	maxValue(max),
-	pixels(std::make_unique<float[]>(w * h * (dimension)))
+		width(w),
+		height(h),
+		channels(c),
+		dimension(c + 2),
+		maxValue(max),
+		matrix(std::make_unique<float[]>(w * h * (dimension)))
 {
-	for (int i = 0; i < width * height * channels; ++i)
-		pixels[i] = 0.0f;
+	for (int i = 0; i < width * height * dimension; ++i)
+		matrix[i] = 0.0f;
 }
 
 void ImageMatrix::load(const uint8_t *buffer) const
@@ -25,24 +25,24 @@ void ImageMatrix::load(const uint8_t *buffer) const
 		{
 			int pixels_idx = i * dimension + j;
 			int buffer_idx = i * channels + j;
-			pixels[pixels_idx] = static_cast<float>(buffer[buffer_idx]) / maxValue;
+			matrix[pixels_idx] = static_cast<float>(buffer[buffer_idx]) / maxValue;
 		}
 		// load coordinates
 		int row = i / width;
 		int col = i % width;
-		pixels[i * dimension + channels]     = static_cast<float>(col) * xScale;
-		pixels[i * dimension + channels + 1] = static_cast<float>(row) * yScale;
+		matrix[i * dimension + channels]     = static_cast<float>(col) * xScale;
+		matrix[i * dimension + channels + 1] = static_cast<float>(row) * yScale;
 	}
 }
 
 float *ImageMatrix::getPixels() // NOLINT
 {
-	return pixels.get();
+	return matrix.get();
 }
 
 const float *ImageMatrix::getPixels() const
 {
-	return pixels.get();
+	return matrix.get();
 }
 
 int ImageMatrix::getWidth() const

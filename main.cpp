@@ -5,6 +5,7 @@
 #include "soa_meanshift_omp.cpp"
 #include "rgb_pixels.cpp"
 #include "image_matrix.h"
+#include "image_soa.h"
 #include <iostream>
 #include <chrono>
 
@@ -18,9 +19,9 @@
 
 #include <omp.h>
 
-// TODO: kernel multiplication
-
 using namespace std::chrono;
+
+// TODO: kernel multiplication
 
 int main()
 {
@@ -38,7 +39,7 @@ int main()
 	int rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
 	int rgbxySpaceSize = RgbPixels::SPACE_DIMENSION;
 	int rgbMaxValue = MAX_VALUE;
-	auto matrix = std::make_unique<ImageMatrix>(image.getW(), image.getH());
+	auto matrix = std::make_shared<ImageMatrix>(image.getW(), image.getH());
 	auto modes = new float[totalPixels * rgbxySpaceSize];
 
 	// initialize the pixel data
@@ -89,20 +90,22 @@ int main()
 
 	// SOA MEANSHIFT START //
 
-    // create the structures of arrays
-    RgbPixels soaPixels{};
+    // create the structures of soa
+    auto soa_pixels = std::make_shared<ImageSoa>(image.getW(), image.getH());
+    auto soa_modes = std::make_shared<ImageSoa>(image.getW(), image.getH());
+    /*RgbPixels soaPixels{};
 	RgbPixels soaModes{};
 	soaPixels.create(image.getW(), image.getH());
-	soaModes.create(image.getW(), image.getH());
+	soaModes.create(image.getW(), image.getH());*/
 
 	// initialize the pixel data
-	soaPixels.load(inputBuffer);
+    soa_pixels->load(inputBuffer);
 
 	// create the index array
     //int clusters[totalPixels];
 
-	// create the result variables
-	//int nOfClusters;
+	// clean the result variables
+    nOfClusters = 0;
 	totalTime = 0;
 
 	// function loop
@@ -113,12 +116,11 @@ int main()
 
 		// time the function
 		auto start_time = high_resolution_clock::now();
-		nOfClusters = soaMeanShiftOmp(soaPixels, totalPixels, BANDWIDTH, soaModes, clusters);
+		nOfClusters = soaMeanShiftOmp(soa_pixels, totalPixels, BANDWIDTH, soa_modes, clusters);
 		auto end_time = high_resolution_clock::now();
 
 		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
 	}
-
 	averageTime = totalTime / ITERATIONS;
 
 	// print the results
@@ -127,21 +129,12 @@ int main()
 	printf("  average: %fms\n", averageTime);
 	printf("Number of clusters: %d\n", nOfClusters);
 
-	// create the output image buffer
-	rgbPixelSize = RgbPixels::COLOR_SPACE_DIMENSION;
-	rgbMaxValue = MAX_VALUE;
-    auto outputBuffer = new uint8_t[totalPixels * rgbPixelSize];
-    for(int i = 0; i < totalPixels; ++i)
-    {
-		outputBuffer[i * rgbPixelSize]     = (uint8_t) (soaModes.r[clusters[i]] * rgbMaxValue); // R
-		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (soaModes.g[clusters[i]] * rgbMaxValue); // G
-		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (soaModes.b[clusters[i]] * rgbMaxValue); // B
-    }
+    // map the pixels to obtain the segmented image
+    soa_pixels->map(soa_modes, clusters);
 
-	// free the memory
-	soaPixels.destroy();
-	soaModes.destroy();
-	delete[] clusters;
+	// create the output image buffer
+    auto outputBuffer = new uint8_t[image.getW() * image.getH() * RGB_CHANNELS];
+    soa_pixels->save(outputBuffer);
 
 	// SOA MEANSHIFT END //
 
@@ -154,6 +147,7 @@ int main()
 		return -1;
 	}
 
+    delete[] clusters;
 	delete[] outputBuffer;
 
 	return 0;

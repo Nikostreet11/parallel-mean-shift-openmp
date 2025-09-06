@@ -5,11 +5,15 @@
 
 #include "rgb_pixels.cpp"
 #include "distance.cpp"
+#include "image_soa.h"
+#include "alias.h"
+#include <memory>
 
-int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPixels &modes, int* clusters)
+
+int soaMeanShiftOmp(Ref<ImageSoa> points, size_t nOfPoints, float bandwidth, Ref<ImageSoa> modes, int* clusters)
 {
 	// sanity check
-	if (&points == &modes)
+	if (points == modes)
 	{
 		printf("Error - Pixel and modes can't be the same structure!");
 		return -1;
@@ -21,8 +25,9 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 	auto epsilon = (float) pow(bandwidth * 0.05, 2);
 
 	// structure of array to save the final mean of each pixel
-	RgbPixels means{};
-	means.create(points.width, points.height);
+	auto means = std::make_unique<ImageSoa>(points->getWidth(), points->getHeight());
+	//RgbPixels means{};
+	//means.create(points.width, points.height);
 
 	// compute the means
 	#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, squaredBandwidth, nOfPoints)
@@ -32,7 +37,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 		{
 			// initialize the mean on the current point
 			float mean[CHANNELS];
-			points.write(i, mean);
+			points->write(i, mean);
 
 			// assignment to ensure the first computation
 			float shift = epsilon;
@@ -49,7 +54,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 				for (int j = 0; j < nOfPoints; ++j)
 				{
 					float point[CHANNELS];
-					points.write(j, point);
+					points->write(j, point);
 
 					if (l2SquaredDistance(mean, point, CHANNELS) <= squaredBandwidth)
 					{
@@ -72,7 +77,7 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 			}
 
 			// mean now contains the mode of the point
-			means.save(mean, i);
+			means->read(mean, i);
 		}
 	}
 
@@ -85,14 +90,14 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 	for (int i = 0; i < nOfPoints; ++i)
 	{
 		float mean[CHANNELS];
-		means.write(i, mean);
+		means->write(i, mean);
 
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
 		{
 			// select the current mode
 			float mode[CHANNELS];
-			modes.write(j, mode);
+			modes->write(j, mode);
 
 			// if the mean is close enough to the current mode
 			if(l2SquaredDistance(mean, mode, CHANNELS) < squaredBandwidth)
@@ -109,13 +114,13 @@ int soaMeanShiftOmp(RgbPixels &points, size_t nOfPoints, float bandwidth, RgbPix
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			modes.save(mean, clustersCount);
+			modes->read(mean, clustersCount);
 
 			clustersCount++;
 		}
 	}
 
-	means.destroy();
+	//means.destroy();
 
 	return clustersCount;
 }
