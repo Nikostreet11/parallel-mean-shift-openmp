@@ -20,24 +20,27 @@ using namespace std::chrono;
 int main()
 {
 	PPM image;
+    
+    // read the input image
 	if (image.read(INPUT_PATH) != 0)
 	{
 		return -1;
 	}
-	int totalPixels = image.getW() * image.getH();
-	uint8_t* inputBuffer = image.getImageHandler();
 
+    // get the raw image buffer
+	uint8_t* buffer = image.getImageHandler();
+    
 	// MATRIX MEANSHIFT START //
 
 	// create the matrices
 	auto matrix = std::make_shared<ImageMatrix>(image.getW(), image.getH());
-	auto modes = new float[totalPixels * RGB_CHANNELS + 2];
+	auto modes = new float[image.getW() * image.getH() * (RGB_CHANNELS + 2)];
 
 	// initialize the pixel data
-	matrix->load(inputBuffer);
+	matrix->load(buffer);
 
 	// create the index array
-	auto clusters = new int[totalPixels];
+	auto clusters = new int[image.getW() * image.getH()];
 
 	// create the result variables
 	int nOfClusters;
@@ -51,7 +54,7 @@ int main()
 
 		// time the function
 		auto start_time = high_resolution_clock::now();
-		nOfClusters = matrixMeanShiftOmp(matrix->getPixels(), totalPixels, BANDWIDTH, modes, clusters);
+		nOfClusters = matrixMeanShiftOmp(matrix->getPixels(), image.getW() * image.getH(), BANDWIDTH, modes, clusters);
 		auto end_time = high_resolution_clock::now();
 
 		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
@@ -65,8 +68,8 @@ int main()
 	printf("  average: %fms\n", averageTime);
 	printf("Number of clusters: %d\n", nOfClusters);
 
-    /*uint8_t outputBuffer[totalPixels * rgbPixelSize];
-    for (int i = 0; i < totalPixels; ++i)
+    /*uint8_t outputBuffer[image.getW() * image.getH() * rgbPixelSize];
+    for (int i = 0; i < image.getW() * image.getH(); ++i)
 	{
 		outputBuffer[i * rgbPixelSize]	   = (uint8_t) (modes[clusters[i] * rgbxySpaceSize]     * rgbMaxValue); // R
 		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 1] * rgbMaxValue); // G
@@ -81,19 +84,12 @@ int main()
 
 	// SOA MEANSHIFT START //
 
-    // create the structures of soa
+    // create the structures of arrays
     auto soa_pixels = std::make_shared<ImageSoa>(image.getW(), image.getH());
     auto soa_modes = std::make_shared<ImageSoa>(image.getW(), image.getH());
-    /*RgbPixels soaPixels{};
-	RgbPixels soaModes{};
-	soaPixels.create(image.getW(), image.getH());
-	soaModes.create(image.getW(), image.getH());*/
 
 	// initialize the pixel data
-    soa_pixels->load(inputBuffer);
-
-	// create the index array
-    //int clusters[totalPixels];
+    soa_pixels->load(buffer);
 
 	// clean the result variables
     nOfClusters = 0;
@@ -107,7 +103,7 @@ int main()
 
 		// time the function
 		auto start_time = high_resolution_clock::now();
-		nOfClusters = soaMeanShiftOmp(soa_pixels, totalPixels, BANDWIDTH, soa_modes, clusters);
+		nOfClusters = soaMeanShiftOmp(soa_pixels, image.getW() * image.getH(), BANDWIDTH, soa_modes, clusters);
 		auto end_time = high_resolution_clock::now();
 
 		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
@@ -128,13 +124,13 @@ int main()
     soa_pixels->save(outputBuffer);
 
 	// SOA MEANSHIFT END //
-
+    
+    // load the segmented buffer
 	image.load(outputBuffer, image.getH(), image.getW(), image.getMax(), image.getMagic());
 
-	// write the output image
+	// write the image to output file
 	if (image.write(OUTPUT_PATH) != 0)
 	{
-		std::cout << "ERROR: failed to write the image";
 		return -1;
 	}
 
