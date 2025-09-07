@@ -1,6 +1,6 @@
-#include <memory>
-#include <iostream>
 #include "image_soa.h"
+
+#include <iostream>
 
 ImageSoa::ImageSoa(int width, int height, int channels, int maxValue) :
 		width_(width),
@@ -25,7 +25,7 @@ void ImageSoa::load(const uint8_t* buffer) const
 
 	for (int i = 0; i < width_ * height_; ++i)
 	{
-		// load color channels
+		// load color channels_
 		for (int j = 0; j < channels_; ++j)
 		{
 			int buffer_idx = i * channels_ + j;
@@ -41,13 +41,24 @@ void ImageSoa::load(const uint8_t* buffer) const
 
 void ImageSoa::save(uint8_t *buffer) const
 {
-    for(int i = 0; i < width_ * height_; ++i)
+    for (int i = 0; i < width_ * height_; ++i)
     {
         for (int j = 0; j < channels_; ++j)
         {
             buffer[i * channels_ + j] = (uint8_t) (soa_[j][i] * maxValue_);
         }
     }
+}
+
+void ImageSoa::map(const Ref<ImageSoa>& source, const int *mapper)
+{
+	for (int i = 0; i < width_ * height_; ++i)
+	{
+		for (int j = 0; j < dimension_; ++j)
+		{
+			soa_[j][i] = (source->soa_[j][mapper[i]]);
+		}
+	}
 }
 
 void ImageSoa::write(int i, float *array)
@@ -99,15 +110,4 @@ const int ImageSoa::getDimension() const
 const int ImageSoa::getMaxValue() const
 {
     return maxValue_;
-}
-
-void ImageSoa::map(const Ref<ImageSoa>& source, const int *mapper)
-{
-    for (int i = 0; i < width_ * height_; ++i)
-    {
-        for (int j = 0; j < dimension_; ++j)
-        {
-            soa_[j][i] = (source->soa_[j][mapper[i]]);
-        }
-    }
 }

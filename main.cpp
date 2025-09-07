@@ -17,125 +17,136 @@ using namespace std::chrono;
 
 // TODO: kernel multiplication
 
-int main()
+uint8_t* matrixOmpImageSegmentationRun(uint8_t* input, int width, int height)
 {
-	PPM image;
-    
-    // read the input image
-	if (image.read(INPUT_PATH) != 0)
+
+    // create the matrices
+    auto matrixPixels = std::make_shared<ImageMatrix>(width, height);
+    auto matrixModes = std::make_shared<ImageMatrix>(width, height);
+    //auto matrixModes = new float[width * height * (RGB_CHANNELS + 2)];
+
+    // initialize the pixel data
+    matrixPixels->load(input);
+
+    // create the index array
+    auto clusters = new int[width * height];
+
+    // create the result variables
+    int nOfClusters;
+    float totalTime = 0;
+
+    // function loop
+    printf("Using # %d threads.\n", omp_get_max_threads());
+    for (int i = 0; i < ITERATIONS; ++i)
+    {
+        printf("Calling the MeanShift function... (%d)\n", i);
+
+        // time the function
+        auto start_time = high_resolution_clock::now();
+        nOfClusters = matrixMeanShiftOmp(matrixPixels->getPixels(), width * height, BANDWIDTH, matrixModes->getPixels(), clusters);
+        auto end_time = high_resolution_clock::now();
+
+        totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
+    }
+
+    float averageTime = totalTime / ITERATIONS;
+
+    // print the results
+    printf("Matrix timings: (measured on %d iterations)\n", ITERATIONS);
+    printf("  total:   %fms\n", totalTime);
+    printf("  average: %fms\n", averageTime);
+    printf("Number of clusters: %d\n\n", nOfClusters);
+
+    /*uint8_t outputBuffer[width_ * height_ * rgbPixelSize];
+    for (int i = 0; i < width_ * height_; ++i)
 	{
-		return -1;
-	}
-
-    // get the raw image buffer
-	uint8_t* buffer = image.getImageHandler();
-    
-	// MATRIX MEANSHIFT START //
-
-	// create the matrices
-	auto matrix = std::make_shared<ImageMatrix>(image.getW(), image.getH());
-	auto modes = new float[image.getW() * image.getH() * (RGB_CHANNELS + 2)];
-
-	// initialize the pixel data
-	matrix->load(buffer);
-
-	// create the index array
-	auto clusters = new int[image.getW() * image.getH()];
-
-	// create the result variables
-	int nOfClusters;
-	float totalTime = 0;
-
-	// function loop
-	printf("Using # %d threads.\n", omp_get_max_threads());
-	for (int i = 0; i < ITERATIONS; ++i)
-	{
-		printf("Calling the MeanShift function... (%d)\n", i);
-
-		// time the function
-		auto start_time = high_resolution_clock::now();
-		nOfClusters = matrixMeanShiftOmp(matrix->getPixels(), image.getW() * image.getH(), BANDWIDTH, modes, clusters);
-		auto end_time = high_resolution_clock::now();
-
-		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
-	}
-
-	float averageTime = totalTime / ITERATIONS;
-
-	// print the results
-	printf("Matrix timings: (measured on %d iterations)\n", ITERATIONS);
-	printf("  total:   %fms\n", totalTime);
-	printf("  average: %fms\n", averageTime);
-	printf("Number of clusters: %d\n", nOfClusters);
-
-    /*uint8_t outputBuffer[image.getW() * image.getH() * rgbPixelSize];
-    for (int i = 0; i < image.getW() * image.getH(); ++i)
-	{
-		outputBuffer[i * rgbPixelSize]	   = (uint8_t) (modes[clusters[i] * rgbxySpaceSize]     * rgbMaxValue); // R
-		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 1] * rgbMaxValue); // G
-		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (modes[clusters[i] * rgbxySpaceSize + 2] * rgbMaxValue); // B
+		outputBuffer[i * rgbPixelSize]	   = (uint8_t) (matrixModes[clusters[i] * rgbxySpaceSize]     * rgbMaxValue); // R
+		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (matrixModes[clusters[i] * rgbxySpaceSize + 1] * rgbMaxValue); // G
+		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (matrixModes[clusters[i] * rgbxySpaceSize + 2] * rgbMaxValue); // B
 	}*/
 
-	delete[] modes;
+    // map the pixels to obtain the segmented image
+    matrixPixels->map(matrixModes, clusters);
 
-  	// MATRIX MEANSHIFT END //
+    // create the output image input
+    auto output = new uint8_t[width * height * RGB_CHANNELS];
+    matrixPixels->save(output);
 
-	printf("\n");
+    delete[] clusters;
 
-	// SOA MEANSHIFT START //
+    return output;
+}
+
+uint8_t* soaOmpImageSegmentationRun(uint8_t* input, int width, int height)
+{
+    // create the index array
+    auto clusters = new int[width * height];
 
     // create the structures of arrays
-    auto soa_pixels = std::make_shared<ImageSoa>(image.getW(), image.getH());
-    auto soa_modes = std::make_shared<ImageSoa>(image.getW(), image.getH());
+    auto soa_pixels = std::make_shared<ImageSoa>(width, height);
+    auto soa_modes = std::make_shared<ImageSoa>(width, height);
 
-	// initialize the pixel data
-    soa_pixels->load(buffer);
+    // initialize the pixel data
+    soa_pixels->load(input);
 
-	// clean the result variables
-    nOfClusters = 0;
-	totalTime = 0;
+    // clean the result variables
+    int nOfClusters = 0;
+    float totalTime = 0;
 
-	// function loop
-	printf("Using # %d threads.\n", omp_get_max_threads());
-	for (int i = 0; i < ITERATIONS; ++i)
-	{
-		printf("Calling the MeanShift function... (%d)\n", i);
+    // function loop
+    printf("Using # %d threads.\n", omp_get_max_threads());
+    for (int i = 0; i < ITERATIONS; ++i)
+    {
+        printf("Calling the MeanShift function... (%d)\n", i);
 
-		// time the function
-		auto start_time = high_resolution_clock::now();
-		nOfClusters = soaMeanShiftOmp(soa_pixels, image.getW() * image.getH(), BANDWIDTH, soa_modes, clusters);
-		auto end_time = high_resolution_clock::now();
+        // time the function
+        auto start_time = high_resolution_clock::now();
+        nOfClusters = soaMeanShiftOmp(soa_pixels, width * height, BANDWIDTH, soa_modes, clusters);
+        auto end_time = high_resolution_clock::now();
 
-		totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
-	}
-	averageTime = totalTime / ITERATIONS;
+        totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
+    }
+    float averageTime = totalTime / ITERATIONS;
 
-	// print the results
-	printf("SoA timings: (measured on %d iterations)\n", ITERATIONS);
-	printf("  total:   %fms\n", totalTime);
-	printf("  average: %fms\n", averageTime);
-	printf("Number of clusters: %d\n", nOfClusters);
+    // print the results
+    printf("SoA timings: (measured on %d iterations)\n", ITERATIONS);
+    printf("  total:   %fms\n", totalTime);
+    printf("  average: %fms\n", averageTime);
+    printf("Number of clusters: %d\n\n", nOfClusters);
 
     // map the pixels to obtain the segmented image
     soa_pixels->map(soa_modes, clusters);
 
-	// create the output image buffer
-    auto outputBuffer = new uint8_t[image.getW() * image.getH() * RGB_CHANNELS];
-    soa_pixels->save(outputBuffer);
-
-	// SOA MEANSHIFT END //
-    
-    // load the segmented buffer
-	image.load(outputBuffer, image.getH(), image.getW(), image.getMax(), image.getMagic());
-
-	// write the image to output file
-	if (image.write(OUTPUT_PATH) != 0)
-	{
-		return -1;
-	}
+    // create the output image input
+    auto output = new uint8_t[width * height * RGB_CHANNELS];
+    soa_pixels->save(output);
 
     delete[] clusters;
-	delete[] outputBuffer;
+
+    return output;
+}
+
+int main()
+{
+	PPM image;
+    
+    // read the input image buffer
+	if (image.read(INPUT_PATH) != 0) { return -1; }
+	uint8_t* buffer = image.getImageHandler();
+
+	// run the experiments
+    uint8_t* matrixBuffer = matrixOmpImageSegmentationRun(buffer, image.getW(), image.getH());
+    uint8_t* soaBuffer = soaOmpImageSegmentationRun(buffer, image.getW(), image.getH());
+
+	// save the results to file
+	image.load(matrixBuffer, image.getH(), image.getW(), image.getMax(), image.getMagic());
+	if (image.write(OUTPUT_PATH_AOS_OMP) != 0)	{ return 1; }
+    image.load(soaBuffer, image.getH(), image.getW(), image.getMax(), image.getMagic());
+	if (image.write(OUTPUT_PATH_SOA_OMP) != 0)	{ return 2; }
+
+	// cleanup
+	delete[] matrixBuffer;
+    delete[] soaBuffer;
 
 	return 0;
 }

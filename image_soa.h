@@ -17,8 +17,8 @@ private:
 public:
 	explicit ImageSoa(int width, int height, int channels = 3, int maxValue = 255);
 
-    void load(const uint8_t *_buffer) const;
-    void save(uint8_t *_buffer) const;
+    void load(const uint8_t *buffer) const;
+    void save(uint8_t *buffer) const;
     void map(const Ref<ImageSoa>& source, const int* mapper);
 	void write(int i, float* array);
 	void read(const float* array, int i);
