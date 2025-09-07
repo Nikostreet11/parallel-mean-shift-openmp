@@ -15,7 +15,8 @@ private:
 	Unique<Unique<float[]>[]>soa_;
 
 public:
-	explicit ImageSoa(int width, int height, int channels = 3, int maxValue = 255);
+    explicit ImageSoa(int width, int height, int channels, int maxValue);
+    explicit ImageSoa(Ref<ImageSoa> copy);
 
     void load(const uint8_t *buffer) const;
     void save(uint8_t *buffer) const;
@@ -24,11 +25,11 @@ public:
 	void read(const float* array, int i);
 	void print(int i);
 
-    const int getWidth() const;
-    const int getHeight() const;
-    const int getChannels() const;
-    const int getDimension() const;
-    const int getMaxValue() const;
+    int getWidth() const;
+    int getHeight() const;
+    int getChannels() const;
+    int getDimension() const;
+    int getMaxValue() const;
 };
 
 

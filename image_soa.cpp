@@ -17,6 +17,22 @@ ImageSoa::ImageSoa(int width, int height, int channels, int maxValue) :
 	}
 }
 
+ImageSoa::ImageSoa(Ref<ImageSoa> copy) :
+		width_(copy->width_),
+		height_(copy->height_),
+		channels_(copy->channels_),
+		dimension_(copy->dimension_),
+		maxValue_(copy->maxValue_),
+		soa_(std::make_unique<std::unique_ptr<float[]>[]>(dimension_))
+{
+	for (int i = 0; i < dimension_; ++i)
+	{
+		soa_[i] = std::make_unique<float[]>(width_ * height_);
+		for (int j = 0; j < width_ * height_; ++j)
+			soa_[i][j] = copy->soa_[i][j];
+	}
+}
+
 void ImageSoa::load(const uint8_t* buffer) const
 {
 	// normalize dividing by max-1 to map the result in the range [0,1] inclusive
@@ -87,27 +103,27 @@ void ImageSoa::print(int i)
 	std::cout << "]" << std::endl;
 }
 
-const int ImageSoa::getWidth() const
+int ImageSoa::getWidth() const
 {
     return width_;
 }
 
-const int ImageSoa::getHeight() const
+int ImageSoa::getHeight() const
 {
     return height_;
 }
 
-const int ImageSoa::getChannels() const
+int ImageSoa::getChannels() const
 {
     return channels_;
 }
 
-const int ImageSoa::getDimension() const
+int ImageSoa::getDimension() const
 {
     return dimension_;
 }
 
-const int ImageSoa::getMaxValue() const
+int ImageSoa::getMaxValue() const
 {
     return maxValue_;
 }

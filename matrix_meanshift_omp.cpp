@@ -6,15 +6,23 @@
 #include <iostream>
 #include "distance.cpp"
 
-int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, float* modes, int* clusters)
+int matrixMeanShiftOmp(Ref<ImageMatrix> points, size_t nOfPoints, float bandwidth, Ref<ImageMatrix> modes, int* clusters)
 {
+	// sanity check
+	if (points == modes)
+	{
+		printf("Error - Pixel and modes can't be the same object!");
+		return -1;
+	}
+
 	auto squaredBandwidth = (float) pow(bandwidth, 2);
 
 	// stop value to check for the shift convergence
 	auto epsilon = (float) pow(bandwidth * 0.05, 2);
 
 	// matrix to save the final mean of each pixel
-	auto means = new float[nOfPoints * CHANNELS];
+	auto means = std::make_unique<ImageMatrix>(points);
+	//auto means = new float[nOfPoints * CHANNELS];
 
 	// compute the means
 	#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, squaredBandwidth, nOfPoints)
@@ -24,7 +32,8 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, float* 
 		{
 			// initialize the mean on the current point
 			float mean[CHANNELS];
-			for (int k = 0; k < CHANNELS; ++k) { mean[k] = points[i * CHANNELS + k]; }
+			points->write(i, mean);
+			//for (int k = 0; k < CHANNELS; ++k) { mean[k] = points[i * CHANNELS + k]; }
 
 			// assignment to ensure the first computation
 			float shift = epsilon;
@@ -33,7 +42,8 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, float* 
 			{
 				// initialize the centroid to 0, it will accumulate points later
 				float centroid[CHANNELS];
-				for (int k = 0; k < CHANNELS; ++k) { centroid[k] = 0; }
+				for (float& k : centroid) { k = 0; }
+				//for (int k = 0; k < CHANNELS; ++k) { centroid[k] = 0; }
 
 				// track the number of points inside the bandwidth window
 				int windowPoints = 0;
@@ -41,7 +51,8 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, float* 
 				for (int j = 0; j < nOfPoints; ++j)
 				{
 					float point[CHANNELS];
-					for (int k = 0; k < CHANNELS; ++k) { point[k] = points[j * CHANNELS + k]; }
+					points->write(j, point);
+					//for (int k = 0; k < CHANNELS; ++k) { point[k] = points[j * CHANNELS + k]; }
 
 					if (l2SquaredDistance(mean, point, CHANNELS) <= squaredBandwidth)
 					{
@@ -64,7 +75,8 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, float* 
 			}
 
 			// mean now contains the mode of the point
-			for (int k = 0; k < CHANNELS; ++k) { means[i * CHANNELS + k] = mean[k]; };
+			means->read(mean, i);
+			//for (int k = 0; k < CHANNELS; ++k) { means[i * CHANNELS + k] = mean[k]; };
 		}
 	}
 
@@ -77,14 +89,16 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, float* 
 	for (int i = 0; i < nOfPoints; ++i)
 	{
 		float mean[CHANNELS];
-		for (int k = 0; k < CHANNELS; ++k) { mean[k] = means[i * CHANNELS + k]; }
+		means->write(i, mean);
+		//for (int k = 0; k < CHANNELS; ++k) { mean[k] = means[i * CHANNELS + k]; }
 
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
 		{
 			// select the current mode
 			float mode[CHANNELS];
-			for (int k = 0; k < CHANNELS; ++k) { mode[k] = modes[j * CHANNELS + k]; }
+			modes->write(j, mode);
+			//for (int k = 0; k < CHANNELS; ++k) { mode[k] = modes[j * CHANNELS + k]; }
 
 			// if the mean is close enough to the current mode
 			if (l2SquaredDistance(mean, mode, CHANNELS) < squaredBandwidth)
@@ -99,13 +113,14 @@ int matrixMeanShiftOmp(float* points, size_t nOfPoints, float bandwidth, float* 
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			for (int k = 0; k < CHANNELS; ++k) { modes[clustersCount * CHANNELS + k] = mean[k]; }
+			modes->read(mean, clustersCount);
+			//for (int k = 0; k < CHANNELS; ++k) { modes[clustersCount * CHANNELS + k] = mean[k]; }
 
 			clustersCount++;
 		}
 	}
 
-	delete[] means;
+	//delete[] means;
 
 	return clustersCount;
 }

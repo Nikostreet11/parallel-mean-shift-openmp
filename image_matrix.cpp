@@ -8,10 +8,26 @@ ImageMatrix::ImageMatrix(int width, int height, int channels, int maxValue) :
         channels_(channels),
         dimension_(channels + 2),
         maxValue_(maxValue),
-        arr_(std::make_unique<float[]>(width * height * (dimension_)))
+        arr_(std::make_unique<float[]>(width * height * dimension_))
 {
 	for (int i = 0; i < width_ * height_ * dimension_; ++i)
-        arr_[i] = 0.0f;
+	{
+		arr_[i] = 0.0f;
+	}
+}
+
+ImageMatrix::ImageMatrix(Ref<ImageMatrix> copy) :
+		width_(copy->width_),
+		height_(copy->height_),
+		channels_(copy->channels_),
+		dimension_(copy->dimension_),
+		maxValue_(copy->maxValue_),
+		arr_(std::make_unique<float[]>(width_ * height_ * dimension_))
+{
+	for (int i = 0; i < width_ * height_ * dimension_; ++i)
+	{
+		arr_[i] = copy->arr_[i];
+	}
 }
 
 void ImageMatrix::load(const uint8_t *buffer) const
@@ -85,36 +101,26 @@ void ImageMatrix::print(int i)
 	std::cout << "]" << std::endl;
 }
 
-float *ImageMatrix::getPixels() // NOLINT
-{
-	return arr_.get();
-}
-
-const float *ImageMatrix::getPixels() const
-{
-	return arr_.get();
-}
-
-const int ImageMatrix::getWidth() const
+int ImageMatrix::getWidth() const
 {
 	return width_;
 }
 
-const int ImageMatrix::getHeight() const
+int ImageMatrix::getHeight() const
 {
 	return height_;
 }
 
-const int ImageMatrix::getChannels() const
+int ImageMatrix::getChannels() const
 {
 	return channels_;
 }
 
-const int ImageMatrix::getDimension() const {
+int ImageMatrix::getDimension() const {
 	return dimension_;
 }
 
-const int ImageMatrix::getMaxValue() const
+int ImageMatrix::getMaxValue() const
 {
-	return getMaxValue();
+	return maxValue_;
 }

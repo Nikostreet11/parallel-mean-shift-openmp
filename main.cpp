@@ -21,8 +21,8 @@ uint8_t* matrixOmpImageSegmentationRun(uint8_t* input, int width, int height)
 {
 
     // create the matrices
-    auto matrixPixels = std::make_shared<ImageMatrix>(width, height);
-    auto matrixModes = std::make_shared<ImageMatrix>(width, height);
+    auto matrixPixels = std::make_shared<ImageMatrix>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
+    auto matrixModes = std::make_shared<ImageMatrix>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
     //auto matrixModes = new float[width * height * (RGB_CHANNELS + 2)];
 
     // initialize the pixel data
@@ -43,7 +43,7 @@ uint8_t* matrixOmpImageSegmentationRun(uint8_t* input, int width, int height)
 
         // time the function
         auto start_time = high_resolution_clock::now();
-        nOfClusters = matrixMeanShiftOmp(matrixPixels->getPixels(), width * height, BANDWIDTH, matrixModes->getPixels(), clusters);
+        nOfClusters = matrixMeanShiftOmp(matrixPixels, width * height, BANDWIDTH, matrixModes, clusters);
         auto end_time = high_resolution_clock::now();
 
         totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
@@ -56,14 +56,6 @@ uint8_t* matrixOmpImageSegmentationRun(uint8_t* input, int width, int height)
     printf("  total:   %fms\n", totalTime);
     printf("  average: %fms\n", averageTime);
     printf("Number of clusters: %d\n\n", nOfClusters);
-
-    /*uint8_t outputBuffer[width_ * height_ * rgbPixelSize];
-    for (int i = 0; i < width_ * height_; ++i)
-	{
-		outputBuffer[i * rgbPixelSize]	   = (uint8_t) (matrixModes[clusters[i] * rgbxySpaceSize]     * rgbMaxValue); // R
-		outputBuffer[i * rgbPixelSize + 1] = (uint8_t) (matrixModes[clusters[i] * rgbxySpaceSize + 1] * rgbMaxValue); // G
-		outputBuffer[i * rgbPixelSize + 2] = (uint8_t) (matrixModes[clusters[i] * rgbxySpaceSize + 2] * rgbMaxValue); // B
-	}*/
 
     // map the pixels to obtain the segmented image
     matrixPixels->map(matrixModes, clusters);
@@ -83,8 +75,8 @@ uint8_t* soaOmpImageSegmentationRun(uint8_t* input, int width, int height)
     auto clusters = new int[width * height];
 
     // create the structures of arrays
-    auto soa_pixels = std::make_shared<ImageSoa>(width, height);
-    auto soa_modes = std::make_shared<ImageSoa>(width, height);
+    auto soa_pixels = std::make_shared<ImageSoa>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
+    auto soa_modes = std::make_shared<ImageSoa>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
 
     // initialize the pixel data
     soa_pixels->load(input);

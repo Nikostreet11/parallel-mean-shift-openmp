@@ -14,7 +14,7 @@ int soaMeanShiftOmp(Ref<ImageSoa> points, size_t nOfPoints, float bandwidth, Ref
 	// sanity check
 	if (points == modes)
 	{
-		printf("Error - Pixel and modes can't be the same structure!");
+		printf("Error - Pixel and modes can't be the same object!");
 		return -1;
 	}
 
@@ -24,7 +24,8 @@ int soaMeanShiftOmp(Ref<ImageSoa> points, size_t nOfPoints, float bandwidth, Ref
 	auto epsilon = (float) pow(bandwidth * 0.05, 2);
 
 	// structure of array to save the final mean of each pixel
-	auto means = std::make_unique<ImageSoa>(points->getWidth(), points->getHeight());
+	//auto means = std::make_unique<ImageSoa>(points->getWidth(), points->getHeight(), points->getChannels(), points->getMaxValue());
+	auto means = std::make_unique<ImageSoa>(points);
 	//RgbPixels means{};
 	//means.create(points.width, points.height);
 
