@@ -2,6 +2,8 @@
 #define PARALLEL_MEAN_SHIFT_OPENMP_OPTIONS_H
 
 #define INPUT_PATH  "../img/balloons_50.ppm"
+#define OUTPUT_PATH_ARR_SEQ "../img/output_arr_sequential.ppm"
+#define OUTPUT_PATH_ARR_OMP "../img/output_arr_parallel.ppm"
 #define OUTPUT_PATH_AOS_SEQ "../img/output_aos_sequential.ppm"
 #define OUTPUT_PATH_AOS_OMP "../img/output_aos_parallel.ppm"
 #define OUTPUT_PATH_SOA_SEQ "../img/output_soa_sequential.ppm"

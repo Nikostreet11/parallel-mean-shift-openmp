@@ -23,6 +23,7 @@ public:
 	void print(int i) const override;
 
     float get(int i, int channel) const override;
+	std::string getImplementation() const override;
 };
 
 

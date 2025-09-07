@@ -1,8 +1,8 @@
-#include "image_matrix.h"
+#include "image_arr.h"
 
 #include <iostream>
 
-ImageMatrix::ImageMatrix(int width, int height, int channels, int maxValue) :
+ImageArr::ImageArr(int width, int height, int channels, int maxValue) :
 		Image(width, height, channels, maxValue),
         arr_(std::make_unique<float[]>(width * height * dimension_))
 {
@@ -12,7 +12,7 @@ ImageMatrix::ImageMatrix(int width, int height, int channels, int maxValue) :
 	}
 }
 
-ImageMatrix::ImageMatrix(const ImageMatrix& other) :
+ImageArr::ImageArr(const ImageArr& other) :
 		Image(other),
 		arr_(std::make_unique<float[]>(width_ * height_ * dimension_))
 {
@@ -22,19 +22,19 @@ ImageMatrix::ImageMatrix(const ImageMatrix& other) :
 	}
 }
 
-ImageMatrix::ImageMatrix(const Ref<ImageMatrix>& other)
-		: ImageMatrix(*other)
+ImageArr::ImageArr(const Ref<ImageArr>& other)
+		:ImageArr(*other)
 {}
 
-Unique<Image> ImageMatrix::clone() const
+Unique<Image> ImageArr::clone() const
 {
-	return std::make_unique<ImageMatrix>(*this);;
+	return std::make_unique<ImageArr>(*this);;
 }
 
-void ImageMatrix::load(const uint8_t *buffer) const
+void ImageArr::load(const uint8_t *buffer) const
 {
 	// normalize dividing by max-1 to map the result in the range [0,1] inclusive
-	float xScale = (width_ > 1) ? 1.0f / static_cast<float>(width_ - 1) : 0.0f;
+	float xScale = (width_  > 1) ? 1.0f / static_cast<float>(width_ - 1) : 0.0f;
 	float yScale = (height_ > 1) ? 1.0f / static_cast<float>(height_ - 1) : 0.0f;
 
 	for (int i = 0; i < width_ * height_; ++i)
@@ -54,7 +54,7 @@ void ImageMatrix::load(const uint8_t *buffer) const
 	}
 }
 
-void ImageMatrix::save(uint8_t *buffer) const
+void ImageArr::save(uint8_t *buffer) const
 {
     for (int i = 0; i < width_ * height_; ++i)
     {
@@ -65,7 +65,7 @@ void ImageMatrix::save(uint8_t *buffer) const
     }
 }
 
-void ImageMatrix::map(const Ref<Image>& source, const int *mapper)
+void ImageArr::map(const Ref<Image>& source, const int *mapper)
 {
 	for (int i = 0; i < width_ * height_; ++i)
 	{
@@ -76,7 +76,7 @@ void ImageMatrix::map(const Ref<Image>& source, const int *mapper)
 	}
 }
 
-void ImageMatrix::write(int i, float *array)
+void ImageArr::write(int i, float *array)
 {
 	for (int j = 0; j < dimension_; ++j)
 	{
@@ -84,7 +84,7 @@ void ImageMatrix::write(int i, float *array)
 	}
 }
 
-void ImageMatrix::read(const float *array, int i)
+void ImageArr::read(const float *array, int i)
 {
 	for (int j = 0; j < dimension_; ++j)
 	{
@@ -92,7 +92,7 @@ void ImageMatrix::read(const float *array, int i)
 	}
 }
 
-void ImageMatrix::print(int i) const
+void ImageArr::print(int i) const
 {
 	std::cout << "[ ";
 	for (int j = 0; j < dimension_; ++j)
@@ -102,7 +102,12 @@ void ImageMatrix::print(int i) const
 	std::cout << "]" << std::endl;
 }
 
-float ImageMatrix::get(int i, int channel) const
+float ImageArr::get(int i, int channel) const
 {
 	return arr_[i * dimension_ + channel];
+}
+
+std::string ImageArr::getImplementation() const
+{
+	return "1-dimensional array";
 }

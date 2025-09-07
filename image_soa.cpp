@@ -4,18 +4,21 @@
 
 ImageSoa::ImageSoa(int width, int height, int channels, int maxValue) :
 		Image(width, height, channels, maxValue),
-		soa_(std::make_unique<std::unique_ptr<float[]>[]>(dimension_))
+		soa_(std::make_unique<Unique<float[]>[]>(dimension_))
 {
-	for (int i = 0; i < dimension_; ++i) {
+	for (int i = 0; i < dimension_; ++i)
+	{
 		soa_[i] = std::make_unique<float[]>(width_ * height_);
 		for (int j = 0; j < width_ * height_; ++j)
+		{
 			soa_[i][j] = 0.0f;
+		}
 	}
 }
 
 ImageSoa::ImageSoa(const ImageSoa& other) :
 		Image(other),
-		soa_(std::make_unique<std::unique_ptr<float[]>[]>(dimension_))
+		soa_(std::make_unique<Unique<float[]>[]>(dimension_))
 {
 	for (int i = 0; i < dimension_; ++i)
 	{
@@ -107,4 +110,9 @@ void ImageSoa::print(int i) const
 float ImageSoa::get(int i, int channel) const
 {
 	return soa_[channel][i];
+}
+
+std::string ImageSoa::getImplementation() const
+{
+	return "Structure of Arrays";
 }

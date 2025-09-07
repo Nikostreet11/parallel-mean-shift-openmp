@@ -1,12 +1,12 @@
-#ifndef MATRIX_MEANSHIFT_OMP_CPP
-#define MATRIX_MEANSHIFT_OMP_CPP
+#ifndef MEANSHIFT_OMP_CPP
+#define MEANSHIFT_OMP_CPP
 
 #define CHANNELS 5
 
-#include <iostream>
+#include "image.h"
 #include "distance.cpp"
 
-int matrixMeanShiftOmp(Ref<ImageMatrix> points, size_t nOfPoints, float bandwidth, Ref<ImageMatrix> modes, int* clusters)
+int meanShiftOmp(const Ref<Image>& points, float bandwidth, const Ref<Image>& modes, int* clusters)
 {
 	// sanity check
 	if (points == modes)
@@ -20,20 +20,18 @@ int matrixMeanShiftOmp(Ref<ImageMatrix> points, size_t nOfPoints, float bandwidt
 	// stop value to check for the shift convergence
 	auto epsilon = (float) pow(bandwidth * 0.05, 2);
 
-	// matrix to save the final mean of each pixel
-	auto means = std::make_unique<ImageMatrix>(points);
-	//auto means = new float[nOfPoints * CHANNELS];
+	// structure to save the final mean of each pixel
+	auto means = points->clone();
 
 	// compute the means
-	#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, squaredBandwidth, nOfPoints)
+	#pragma omp parallel default(none) shared(points, means, modes) firstprivate(epsilon, squaredBandwidth)
 	{
 		#pragma omp for
-		for (int i = 0; i < nOfPoints; ++i)
+		for (int i = 0; i < points->getSize(); ++i)
 		{
 			// initialize the mean on the current point
 			float mean[CHANNELS];
 			points->write(i, mean);
-			//for (int k = 0; k < CHANNELS; ++k) { mean[k] = points[i * CHANNELS + k]; }
 
 			// assignment to ensure the first computation
 			float shift = epsilon;
@@ -43,16 +41,14 @@ int matrixMeanShiftOmp(Ref<ImageMatrix> points, size_t nOfPoints, float bandwidt
 				// initialize the centroid to 0, it will accumulate points later
 				float centroid[CHANNELS];
 				for (float& k : centroid) { k = 0; }
-				//for (int k = 0; k < CHANNELS; ++k) { centroid[k] = 0; }
 
 				// track the number of points inside the bandwidth window
 				int windowPoints = 0;
 
-				for (int j = 0; j < nOfPoints; ++j)
+				for (int j = 0; j < points->getSize(); ++j)
 				{
 					float point[CHANNELS];
 					points->write(j, point);
-					//for (int k = 0; k < CHANNELS; ++k) { point[k] = points[j * CHANNELS + k]; }
 
 					if (l2SquaredDistance(mean, point, CHANNELS) <= squaredBandwidth)
 					{
@@ -76,21 +72,19 @@ int matrixMeanShiftOmp(Ref<ImageMatrix> points, size_t nOfPoints, float bandwidt
 
 			// mean now contains the mode of the point
 			means->read(mean, i);
-			//for (int k = 0; k < CHANNELS; ++k) { means[i * CHANNELS + k] = mean[k]; };
 		}
 	}
 
 	// label all points as "not clustered"
-	for (int k = 0; k < nOfPoints; ++k) { clusters[k] = -1; }
+	for (int k = 0; k < points->getSize(); ++k) { clusters[k] = -1; }
 
 	// counter for the number of discovered clusters
 	int clustersCount = 0;
 
-	for (int i = 0; i < nOfPoints; ++i)
+	for (int i = 0; i < points->getSize(); ++i)
 	{
 		float mean[CHANNELS];
 		means->write(i, mean);
-		//for (int k = 0; k < CHANNELS; ++k) { mean[k] = means[i * CHANNELS + k]; }
 
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
@@ -98,31 +92,29 @@ int matrixMeanShiftOmp(Ref<ImageMatrix> points, size_t nOfPoints, float bandwidt
 			// select the current mode
 			float mode[CHANNELS];
 			modes->write(j, mode);
-			//for (int k = 0; k < CHANNELS; ++k) { mode[k] = modes[j * CHANNELS + k]; }
 
 			// if the mean is close enough to the current mode
-			if (l2SquaredDistance(mean, mode, CHANNELS) < squaredBandwidth)
+			if(l2SquaredDistance(mean, mode, CHANNELS) < squaredBandwidth)
 			{
 				// assign the point i to the cluster j
 				clusters[i] = j;
 			}
 			++j;
 		}
+
 		// if the point i was not assigned to a cluster
-		if (clusters[i] == -1) {
+		if (clusters[i] == -1)
+		{
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
 			modes->read(mean, clustersCount);
-			//for (int k = 0; k < CHANNELS; ++k) { modes[clustersCount * CHANNELS + k] = mean[k]; }
 
 			clustersCount++;
 		}
 	}
 
-	//delete[] means;
-
 	return clustersCount;
 }
 
-#endif // MATRIX_MEANSHIFT_OMP_CPP
+#endif // MEANSHIFT_OMP_CPP

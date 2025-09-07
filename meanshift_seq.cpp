@@ -1,27 +1,34 @@
-#ifndef MATRIX_MEANSHIFT_CPP
-#define MATRIX_MEANSHIFT_CPP
+#ifndef MEANSHIFT_SEQ_CPP
+#define MEANSHIFT_SEQ_CPP
 
 #define CHANNELS 5
 
-#include <iostream>
+#include "image.h"
 #include "distance.cpp"
 
-int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, float* modes, int* clusters)
+int meanShiftSeq(const Ref<Image>& points, float bandwidth, const Ref<Image>& modes, int* clusters)
 {
+	// sanity check
+	if (points == modes)
+	{
+		printf("Error - Pixel and modes can't be the same object!");
+		return -1;
+	}
+
 	auto squaredBandwidth = (float) pow(bandwidth, 2);
 
 	// stop value to check for the shift convergence
 	auto epsilon = (float) pow(bandwidth * 0.05, 2);
 
-	// matrix to save the final mean of each pixel
-	auto means = new float[nOfPoints * CHANNELS];
+	// structure to save the final mean of each pixel
+	auto means = points->clone();
 
 	// compute the means
-	for (int i = 0; i < nOfPoints; ++i)
+	for (int i = 0; i < points->getSize(); ++i)
 	{
 		// initialize the mean on the current point
 		float mean[CHANNELS];
-		for (int k = 0; k < CHANNELS; ++k) { mean[k] = points[i * CHANNELS + k]; }
+		points->write(i, mean);
 
 		// assignment to ensure the first computation
 		float shift = epsilon;
@@ -35,10 +42,10 @@ int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, float* mod
 			// track the number of points inside the bandwidth window
 			int windowPoints = 0;
 
-			for (int j = 0; j < nOfPoints; ++j)
+			for (int j = 0; j < points->getSize(); ++j)
 			{
 				float point[CHANNELS];
-				for (int k = 0; k < CHANNELS; ++k) { point[k] = points[j * CHANNELS + k]; }
+				points->write(j, point);
 
 				if (l2SquaredDistance(mean, point, CHANNELS) <= squaredBandwidth)
 				{
@@ -61,49 +68,49 @@ int matrixMeanShift(float* points, size_t nOfPoints, float bandwidth, float* mod
 		}
 
 		// mean now contains the mode of the point
-		for (int k = 0; k < CHANNELS; ++k) { means[i * CHANNELS + k] = mean[k]; };
+		means->read(mean, i);
 	}
 
 	// label all points as "not clustered"
-	for (int k = 0; k < nOfPoints; ++k) { clusters[k] = -1; }
+	for (int k = 0; k < points->getSize(); ++k) { clusters[k] = -1; }
 
 	// counter for the number of discovered clusters
 	int clustersCount = 0;
 
-	for (int i = 0; i < nOfPoints; ++i)
+	for (int i = 0; i < points->getSize(); ++i)
 	{
 		float mean[CHANNELS];
-		for (int k = 0; k < CHANNELS; ++k) { mean[k] = means[i * CHANNELS + k]; }
+		means->write(i, mean);
 
 		int j = 0;
 		while (j < clustersCount && clusters[i] == -1)
 		{
 			// select the current mode
 			float mode[CHANNELS];
-			for (int k = 0; k < CHANNELS; ++k) { mode[k] = modes[j * CHANNELS + k]; }
+			modes->write(j, mode);
 
 			// if the mean is close enough to the current mode
-			if (l2SquaredDistance(mean, mode, CHANNELS) < squaredBandwidth)
+			if(l2SquaredDistance(mean, mode, CHANNELS) < squaredBandwidth)
 			{
 				// assign the point i to the cluster j
 				clusters[i] = j;
 			}
 			++j;
 		}
+
 		// if the point i was not assigned to a cluster
-		if (clusters[i] == -1) {
+		if (clusters[i] == -1)
+		{
 			// create a new cluster associated with the mode of the point i
 			clusters[i] = clustersCount;
 
-			for (int k = 0; k < CHANNELS; ++k) { modes[clustersCount * CHANNELS + k] = mean[k]; }
+			modes->read(mean, clustersCount);
 
 			clustersCount++;
 		}
 	}
 
-	delete[] means;
-
 	return clustersCount;
 }
 
-#endif // MATRIX_MEANSHIFT_CPP
+#endif // MEANSHIFT_SEQ_CPP

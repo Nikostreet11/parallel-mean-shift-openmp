@@ -4,6 +4,7 @@
 #include "alias.h"
 
 #include <cstdint>
+#include <string>
 
 class Image {
 protected:
@@ -29,9 +30,11 @@ public:
 	virtual void print(int i) const = 0;
 
 	virtual float get(int i, int channel) const = 0;
+	virtual std::string getImplementation() const = 0;
 
 	int getWidth() const;
 	int getHeight() const;
+	int getSize() const;
 	int getChannels() const;
 	int getDimension() const;
 	int getMaxValue() const;

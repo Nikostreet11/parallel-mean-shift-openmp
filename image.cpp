@@ -16,6 +16,7 @@ Image::Image(const Ref<Image>& other)
 
 int Image::getWidth() const { return width_; }
 int Image::getHeight() const { return height_; }
+int Image::getSize() const { return width_ * height_; }
 int Image::getChannels() const { return channels_; }
 int Image::getDimension() const { return dimension_; }
 int Image::getMaxValue() const { return maxValue_; }
