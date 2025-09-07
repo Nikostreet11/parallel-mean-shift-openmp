@@ -3,11 +3,7 @@
 #include <iostream>
 
 ImageMatrix::ImageMatrix(int width, int height, int channels, int maxValue) :
-        width_(width),
-        height_(height),
-        channels_(channels),
-        dimension_(channels + 2),
-        maxValue_(maxValue),
+		Image(width, height, channels, maxValue),
         arr_(std::make_unique<float[]>(width * height * dimension_))
 {
 	for (int i = 0; i < width_ * height_ * dimension_; ++i)
@@ -16,18 +12,23 @@ ImageMatrix::ImageMatrix(int width, int height, int channels, int maxValue) :
 	}
 }
 
-ImageMatrix::ImageMatrix(Ref<ImageMatrix> copy) :
-		width_(copy->width_),
-		height_(copy->height_),
-		channels_(copy->channels_),
-		dimension_(copy->dimension_),
-		maxValue_(copy->maxValue_),
+ImageMatrix::ImageMatrix(const ImageMatrix& other) :
+		Image(other),
 		arr_(std::make_unique<float[]>(width_ * height_ * dimension_))
 {
 	for (int i = 0; i < width_ * height_ * dimension_; ++i)
 	{
-		arr_[i] = copy->arr_[i];
+		arr_[i] = other.arr_[i];
 	}
+}
+
+ImageMatrix::ImageMatrix(const Ref<ImageMatrix>& other)
+		: ImageMatrix(*other)
+{}
+
+Unique<Image> ImageMatrix::clone() const
+{
+	return std::make_unique<ImageMatrix>(*this);;
 }
 
 void ImageMatrix::load(const uint8_t *buffer) const
@@ -64,13 +65,13 @@ void ImageMatrix::save(uint8_t *buffer) const
     }
 }
 
-void ImageMatrix::map(const Ref<ImageMatrix> &source, const int *mapper)
+void ImageMatrix::map(const Ref<Image>& source, const int *mapper)
 {
 	for (int i = 0; i < width_ * height_; ++i)
 	{
 		for (int j = 0; j < dimension_; ++j)
 		{
-			arr_[i * dimension_ + j] = (source->arr_[mapper[i] * dimension_ + j]);
+			arr_[i * dimension_ + j] = (source->get(mapper[i], j));
 		}
 	}
 }
@@ -91,7 +92,7 @@ void ImageMatrix::read(const float *array, int i)
 	}
 }
 
-void ImageMatrix::print(int i)
+void ImageMatrix::print(int i) const
 {
 	std::cout << "[ ";
 	for (int j = 0; j < dimension_; ++j)
@@ -101,26 +102,7 @@ void ImageMatrix::print(int i)
 	std::cout << "]" << std::endl;
 }
 
-int ImageMatrix::getWidth() const
+float ImageMatrix::get(int i, int channel) const
 {
-	return width_;
-}
-
-int ImageMatrix::getHeight() const
-{
-	return height_;
-}
-
-int ImageMatrix::getChannels() const
-{
-	return channels_;
-}
-
-int ImageMatrix::getDimension() const {
-	return dimension_;
-}
-
-int ImageMatrix::getMaxValue() const
-{
-	return maxValue_;
+	return arr_[i * dimension_ + channel];
 }

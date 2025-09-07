@@ -3,11 +3,7 @@
 #include <iostream>
 
 ImageSoa::ImageSoa(int width, int height, int channels, int maxValue) :
-		width_(width),
-		height_(height),
-		channels_(channels),
-		dimension_(channels + 2),
-		maxValue_(maxValue),
+		Image(width, height, channels, maxValue),
 		soa_(std::make_unique<std::unique_ptr<float[]>[]>(dimension_))
 {
 	for (int i = 0; i < dimension_; ++i) {
@@ -17,20 +13,25 @@ ImageSoa::ImageSoa(int width, int height, int channels, int maxValue) :
 	}
 }
 
-ImageSoa::ImageSoa(Ref<ImageSoa> copy) :
-		width_(copy->width_),
-		height_(copy->height_),
-		channels_(copy->channels_),
-		dimension_(copy->dimension_),
-		maxValue_(copy->maxValue_),
+ImageSoa::ImageSoa(const ImageSoa& other) :
+		Image(other),
 		soa_(std::make_unique<std::unique_ptr<float[]>[]>(dimension_))
 {
 	for (int i = 0; i < dimension_; ++i)
 	{
 		soa_[i] = std::make_unique<float[]>(width_ * height_);
 		for (int j = 0; j < width_ * height_; ++j)
-			soa_[i][j] = copy->soa_[i][j];
+			soa_[i][j] = other.soa_[i][j];
 	}
+}
+
+ImageSoa::ImageSoa(const Ref<ImageSoa>& other)
+		: ImageSoa(*other)
+{}
+
+Unique<Image> ImageSoa::clone() const
+{
+	return std::make_unique<ImageSoa>(*this);;
 }
 
 void ImageSoa::load(const uint8_t* buffer) const
@@ -66,13 +67,13 @@ void ImageSoa::save(uint8_t *buffer) const
     }
 }
 
-void ImageSoa::map(const Ref<ImageSoa>& source, const int *mapper)
+void ImageSoa::map(const Ref<Image>& source, const int *mapper)
 {
 	for (int i = 0; i < width_ * height_; ++i)
 	{
 		for (int j = 0; j < dimension_; ++j)
 		{
-			soa_[j][i] = (source->soa_[j][mapper[i]]);
+			soa_[j][i] = source->get(mapper[i], j);
 		}
 	}
 }
@@ -93,7 +94,7 @@ void ImageSoa::read(const float *array, int i)
 	}
 }
 
-void ImageSoa::print(int i)
+void ImageSoa::print(int i) const
 {
 	std::cout << "[ ";
 	for (int j = 0; j < dimension_; ++j)
@@ -103,27 +104,7 @@ void ImageSoa::print(int i)
 	std::cout << "]" << std::endl;
 }
 
-int ImageSoa::getWidth() const
+float ImageSoa::get(int i, int channel) const
 {
-    return width_;
-}
-
-int ImageSoa::getHeight() const
-{
-    return height_;
-}
-
-int ImageSoa::getChannels() const
-{
-    return channels_;
-}
-
-int ImageSoa::getDimension() const
-{
-    return dimension_;
-}
-
-int ImageSoa::getMaxValue() const
-{
-    return maxValue_;
+	return soa_[channel][i];
 }
