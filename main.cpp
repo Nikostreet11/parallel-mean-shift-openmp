@@ -6,6 +6,7 @@
 #include "matrix_meanshift_omp.cpp"
 //#include "soa_meanshift.cpp"
 #include "soa_meanshift_omp.cpp"
+#include "benchmark.cpp"
 
 #include "include/ppm_io.cpp"
 
@@ -19,52 +20,24 @@ using namespace std::chrono;
 
 uint8_t* matrixOmpImageSegmentationRun(uint8_t* input, int width, int height)
 {
-
     // create the matrices
-    auto matrixPixels = std::make_shared<ImageMatrix>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
-    auto matrixModes = std::make_shared<ImageMatrix>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
-    //auto matrixModes = new float[width * height * (RGB_CHANNELS + 2)];
+    auto pixels = std::make_shared<ImageMatrix>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
+    auto modes =  std::make_shared<ImageMatrix>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
+	auto clusters = std::make_unique<int[]>(width * height);
 
     // initialize the pixel data
-    matrixPixels->load(input);
+    pixels->load(input);
 
-    // create the index array
-    auto clusters = new int[width * height];
-
-    // create the result variables
-    int nOfClusters;
-    float totalTime = 0;
-
-    // function loop
-    printf("Using # %d threads.\n", omp_get_max_threads());
-    for (int i = 0; i < ITERATIONS; ++i)
-    {
-        printf("Calling the MeanShift function... (%d)\n", i);
-
-        // time the function
-        auto start_time = high_resolution_clock::now();
-        nOfClusters = matrixMeanShiftOmp(matrixPixels, width * height, BANDWIDTH, matrixModes, clusters);
-        auto end_time = high_resolution_clock::now();
-
-        totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
-    }
-
-    float averageTime = totalTime / ITERATIONS;
-
-    // print the results
-    printf("Matrix timings: (measured on %d iterations)\n", ITERATIONS);
-    printf("  total:   %fms\n", totalTime);
-    printf("  average: %fms\n", averageTime);
-    printf("Number of clusters: %d\n\n", nOfClusters);
+	benchmark("MatrixMeanShift", [&]() {
+		return matrixMeanShiftOmp(pixels, width * height, BANDWIDTH, modes, clusters.get());
+	}, ITERATIONS);
 
     // map the pixels to obtain the segmented image
-    matrixPixels->map(matrixModes, clusters);
+    pixels->map(modes, clusters.get());
 
     // create the output image input
     auto output = new uint8_t[width * height * RGB_CHANNELS];
-    matrixPixels->save(output);
-
-    delete[] clusters;
+    pixels->save(output);
 
     return output;
 }
@@ -72,48 +45,26 @@ uint8_t* matrixOmpImageSegmentationRun(uint8_t* input, int width, int height)
 uint8_t* soaOmpImageSegmentationRun(uint8_t* input, int width, int height)
 {
     // create the index array
-    auto clusters = new int[width * height];
+    //auto clusters = new int[width * height];
 
     // create the structures of arrays
-    auto soa_pixels = std::make_shared<ImageSoa>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
-    auto soa_modes = std::make_shared<ImageSoa>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
+    auto pixels = std::make_shared<ImageSoa>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
+    auto modes = std::make_shared<ImageSoa>(width, height, RGB_CHANNELS, RGB_MAX_VALUE);
+	auto clusters = std::make_unique<int[]>(width * height);
 
     // initialize the pixel data
-    soa_pixels->load(input);
+    pixels->load(input);
 
-    // clean the result variables
-    int nOfClusters = 0;
-    float totalTime = 0;
-
-    // function loop
-    printf("Using # %d threads.\n", omp_get_max_threads());
-    for (int i = 0; i < ITERATIONS; ++i)
-    {
-        printf("Calling the MeanShift function... (%d)\n", i);
-
-        // time the function
-        auto start_time = high_resolution_clock::now();
-        nOfClusters = soaMeanShiftOmp(soa_pixels, width * height, BANDWIDTH, soa_modes, clusters);
-        auto end_time = high_resolution_clock::now();
-
-        totalTime += (float) duration_cast<microseconds>(end_time - start_time).count() / 1000.f;
-    }
-    float averageTime = totalTime / ITERATIONS;
-
-    // print the results
-    printf("SoA timings: (measured on %d iterations)\n", ITERATIONS);
-    printf("  total:   %fms\n", totalTime);
-    printf("  average: %fms\n", averageTime);
-    printf("Number of clusters: %d\n\n", nOfClusters);
+	benchmark("SoaMeanShift", [&]() {
+		return soaMeanShiftOmp(pixels, width * height, BANDWIDTH, modes, clusters.get());
+	}, ITERATIONS);
 
     // map the pixels to obtain the segmented image
-    soa_pixels->map(soa_modes, clusters);
+    pixels->map(modes, clusters.get());
 
     // create the output image input
     auto output = new uint8_t[width * height * RGB_CHANNELS];
-    soa_pixels->save(output);
-
-    delete[] clusters;
+    pixels->save(output);
 
     return output;
 }
